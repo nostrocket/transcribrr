@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone delivered
+status: Awaiting next milestone
 stopped_at: Completed 02-02-PLAN.md — milestone complete
-last_updated: "2026-06-14T13:28:40.275Z"
-last_activity: 2026-06-14
+last_updated: "2026-06-14T13:34:56.693Z"
+last_activity: 2026-06-14 — Milestone v1.0 completed and archived
 progress:
   total_phases: 2
   completed_phases: 2
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-14)
 
 ## Current Position
 
-Phase: 02
-Plan: Not started
-Status: Milestone delivered
-Last activity: 2026-06-14
-
-Progress: [██████████] 100%
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-14 — Milestone v1.0 completed and archived
 
 ## Performance Metrics
 
@@ -86,10 +84,19 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| uat | 01-HUMAN-UAT.md — 2 pending scenarios (local-MP3 pipeline run) | partial | v1.0 close (2026-06-14) |
+| uat | 02-HUMAN-UAT.md — 5 pending scenarios (URL→markdown pipeline run) | partial | v1.0 close (2026-06-14) |
+| verification | 01-VERIFICATION.md | human_needed | v1.0 close (2026-06-14) |
+| verification | 02-VERIFICATION.md | human_needed | v1.0 close (2026-06-14) |
+
+These require an Apple-Silicon machine with `yt-dlp` + `ffmpeg` + MLX models + network — run `/gsd-verify-work 1` and `/gsd-verify-work 2` to close them.
 
 ## Session Continuity
 
 Last session: 2026-06-14T12:04:00Z
 Stopped at: Completed 02-02-PLAN.md — milestone complete
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
