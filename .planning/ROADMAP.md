@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Make the three MLX sub-scripts non-interactive (flag-driven) and emit OUTPUT_FILE=
+- [x] 01-01-PLAN.md — Make the three MLX sub-scripts non-interactive (flag-driven) and emit OUTPUT_FILE=
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -64,5 +64,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scriptable Pipeline Foundation | 0/2 | Planned | - |
+| 1. Scriptable Pipeline Foundation | 1/2 | In Progress|  |
 | 2. End-to-End YouTube-to-Markdown Delivery | 0/TBD | Not started | - |
