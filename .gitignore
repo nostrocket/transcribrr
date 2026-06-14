@@ -15,3 +15,11 @@ models/
 .DS_Store
 **/.DS_Store
 ._*
+
+# Per-video working directories created by URL mode (named <SAFE_TITLE>_<VIDEO_ID>/)
+# The pattern *_*/ matches any directory whose name contains an underscore,
+# which covers the sanitized-title + underscore + video-id naming convention.
+*_*/
+
+# Note: the final *.md at the repo root is intentionally NOT gitignored —
+# the user may want to keep or commit the finished transcript document.
