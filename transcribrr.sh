@@ -14,6 +14,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WHISPER_MODEL="small"
 CLEANUP_MODEL="llama3.1-8b-4bit"
 SUMMARY_MODEL="Qwen2.5-32B-4bit"
+WHISPER_MODEL_EXPLICIT=false
+CLEANUP_MODEL_EXPLICIT=false
+SUMMARY_MODEL_EXPLICIT=false
+WHISPER_MODEL_SOURCE="built-in"
+CLEANUP_MODEL_SOURCE="built-in"
+SUMMARY_MODEL_SOURCE="built-in"
 SUMMARY_STYLE="blog"
 NO_CLEANUP=false
 NO_INSTALL=false
@@ -98,14 +104,20 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --whisper-model)
             WHISPER_MODEL="$2"
+            WHISPER_MODEL_EXPLICIT=true
+            WHISPER_MODEL_SOURCE="flag"
             shift 2
             ;;
         --cleanup-model)
             CLEANUP_MODEL="$2"
+            CLEANUP_MODEL_EXPLICIT=true
+            CLEANUP_MODEL_SOURCE="flag"
             shift 2
             ;;
         --summary-model)
             SUMMARY_MODEL="$2"
+            SUMMARY_MODEL_EXPLICIT=true
+            SUMMARY_MODEL_SOURCE="flag"
             shift 2
             ;;
         --summary-style)
@@ -135,6 +147,49 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# ── settings.conf — read model defaults (flag > settings.conf > built-in) ────
+# D-07/D-08: read once, after flag parsing, before preflight.
+# Parse-not-source: grep extracts the value as a literal string; no eval.
+
+SETTINGS_FILE="$SCRIPT_DIR/config/settings.conf"
+if [ -f "$SETTINGS_FILE" ]; then
+    _read_setting() {
+        # Anchored grep prevents prefix collisions; tail -1 = last-writer-wins;
+        # cut -d= -f2- preserves values that contain '=' characters.
+        # || true: grep exits 1 when key not found; with set -euo pipefail that
+        # would abort the script — || true keeps the pipeline exit status at 0.
+        grep "^${1}=" "$SETTINGS_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true
+    }
+    if [ "$WHISPER_MODEL_EXPLICIT" = false ]; then
+        _val=$(_read_setting WHISPER_MODEL_DEFAULT)
+        if [ -n "$_val" ]; then
+            WHISPER_MODEL="$_val"
+            WHISPER_MODEL_SOURCE="settings.conf"
+        fi
+    fi
+    if [ "$CLEANUP_MODEL_EXPLICIT" = false ]; then
+        _val=$(_read_setting CLEANUP_MODEL_DEFAULT)
+        if [ -n "$_val" ]; then
+            CLEANUP_MODEL="$_val"
+            CLEANUP_MODEL_SOURCE="settings.conf"
+        fi
+    fi
+    if [ "$SUMMARY_MODEL_EXPLICIT" = false ]; then
+        _val=$(_read_setting SUMMARY_MODEL_DEFAULT)
+        if [ -n "$_val" ]; then
+            SUMMARY_MODEL="$_val"
+            SUMMARY_MODEL_SOURCE="settings.conf"
+        fi
+    fi
+fi
+
+# ── Provenance summary — print model + source before pipeline starts (D-09) ──
+
+echo "Models:"
+printf "  whisper  = %-24s (%s)\n" "$WHISPER_MODEL" "$WHISPER_MODEL_SOURCE"
+printf "  cleanup  = %-24s (%s)\n" "$CLEANUP_MODEL" "$CLEANUP_MODEL_SOURCE"
+printf "  summary  = %-24s (%s)\n" "$SUMMARY_MODEL" "$SUMMARY_MODEL_SOURCE"
 
 # ── URL vs local input detection (D-01) ──────────────────────────────────────
 # Must run before preflight_check so yt-dlp check is URL-conditional.
@@ -378,9 +433,20 @@ else
     stage_banner "Stage 1/3: Transcribing (whisper model: $WHISPER_MODEL)"
 fi
 
-STAGE_OUT=$("$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
-    | tee /dev/stderr \
-    | { grep "^OUTPUT_FILE=" || true; })
+_run_transcribe() {
+    "$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
+        | tee /dev/stderr \
+        | { grep "^OUTPUT_FILE=" || true; }
+}
+
+if ! STAGE_OUT=$(_run_transcribe); then
+    if [ "$WHISPER_MODEL_SOURCE" = "settings.conf" ]; then
+        echo "" >&2
+        echo "Error: whisper model '$WHISPER_MODEL' from config/settings.conf could not be loaded." >&2
+        echo "Fix: run \`transcribrr.sh --benchmark\` to reselect, or pass --whisper-model <label|hf-id>." >&2
+    fi
+    exit 1
+fi
 TRANSCRIPT_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 if [ -z "$TRANSCRIPT_FILE" ] || [ ! -f "$TRANSCRIPT_FILE" ]; then
@@ -399,9 +465,20 @@ if [ "$NO_CLEANUP" = false ]; then
         stage_banner "Stage 2/3: Cleaning transcript (model: $CLEANUP_MODEL)"
     fi
 
-    STAGE_OUT=$("$SCRIPT_DIR/cleanup-transcript.sh" "$TRANSCRIPT_FILE" --model "$CLEANUP_MODEL" \
-        | tee /dev/stderr \
-        | { grep "^OUTPUT_FILE=" || true; })
+    _run_cleanup() {
+        "$SCRIPT_DIR/cleanup-transcript.sh" "$TRANSCRIPT_FILE" --model "$CLEANUP_MODEL" \
+            | tee /dev/stderr \
+            | { grep "^OUTPUT_FILE=" || true; }
+    }
+
+    if ! STAGE_OUT=$(_run_cleanup); then
+        if [ "$CLEANUP_MODEL_SOURCE" = "settings.conf" ]; then
+            echo "" >&2
+            echo "Error: cleanup model '$CLEANUP_MODEL' from config/settings.conf could not be loaded." >&2
+            echo "Fix: run \`transcribrr.sh --benchmark\` to reselect, or pass --cleanup-model <label|hf-id>." >&2
+        fi
+        exit 1
+    fi
     CLEANED_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
     if [ -z "$CLEANED_FILE" ] || [ ! -f "$CLEANED_FILE" ]; then
@@ -424,11 +501,22 @@ else
     stage_banner "Stage 3/3: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
 fi
 
-STAGE_OUT=$("$SCRIPT_DIR/summarize-transcript.sh" "$SUMMARIZE_INPUT" \
-    --model "$SUMMARY_MODEL" \
-    --style "$SUMMARY_STYLE" \
-    | tee /dev/stderr \
-    | { grep "^OUTPUT_FILE=" || true; })
+_run_summarize() {
+    "$SCRIPT_DIR/summarize-transcript.sh" "$SUMMARIZE_INPUT" \
+        --model "$SUMMARY_MODEL" \
+        --style "$SUMMARY_STYLE" \
+        | tee /dev/stderr \
+        | { grep "^OUTPUT_FILE=" || true; }
+}
+
+if ! STAGE_OUT=$(_run_summarize); then
+    if [ "$SUMMARY_MODEL_SOURCE" = "settings.conf" ]; then
+        echo "" >&2
+        echo "Error: summary model '$SUMMARY_MODEL' from config/settings.conf could not be loaded." >&2
+        echo "Fix: run \`transcribrr.sh --benchmark\` to reselect, or pass --summary-model <label|hf-id>." >&2
+    fi
+    exit 1
+fi
 SUMMARY_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 if [ -z "$SUMMARY_FILE" ] || [ ! -f "$SUMMARY_FILE" ]; then
