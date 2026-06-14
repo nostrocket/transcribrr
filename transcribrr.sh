@@ -157,7 +157,9 @@ if [ -f "$SETTINGS_FILE" ]; then
     _read_setting() {
         # Anchored grep prevents prefix collisions; tail -1 = last-writer-wins;
         # cut -d= -f2- preserves values that contain '=' characters.
-        grep "^${1}=" "$SETTINGS_FILE" 2>/dev/null | tail -1 | cut -d= -f2-
+        # || true: grep exits 1 when key not found; with set -euo pipefail that
+        # would abort the script — || true keeps the pipeline exit status at 0.
+        grep "^${1}=" "$SETTINGS_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true
     }
     if [ "$WHISPER_MODEL_EXPLICIT" = false ]; then
         _val=$(_read_setting WHISPER_MODEL_DEFAULT)
