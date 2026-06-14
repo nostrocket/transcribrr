@@ -139,7 +139,17 @@ else
     # Derive SAFE_TITLE from the local input basename so the downstream assemble
     # stage has SAFE_TITLE defined on both input paths (URL path sets it during
     # the metadata stage; local path sets it here).
-    SAFE_TITLE=$(basename "$MP3_FILE" .mp3 | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+    # Strip ANY extension, not just ".mp3" — the help text advertises any
+    # ffmpeg-readable audio, so "talk.wav" must not leak ".wav" into the title
+    # or the final filename (WR-04).
+    SAFE_TITLE=$(basename "$MP3_FILE")
+    SAFE_TITLE="${SAFE_TITLE%.*}"
+    SAFE_TITLE=$(printf '%s' "$SAFE_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+    # Fall back to a non-empty default if the basename sanitizes to "" (e.g. a
+    # file literally named ".mp3") so we never write a hidden ".md" (WR-01).
+    if [ -z "$SAFE_TITLE" ]; then
+        SAFE_TITLE="transcribrr_output"
+    fi
 fi
 
 # ── Preflight check (D-10, ROB-01) ───────────────────────────────────────────
@@ -287,6 +297,12 @@ if [ "$IS_URL" = true ]; then
 
     # Sanitize title for safe filesystem use (Security: removes / and shell-meta chars)
     SAFE_TITLE=$(echo "$VIDEO_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+    # An all-symbol title (e.g. "???///") sanitizes to "" which would yield a
+    # hidden ".md" final file and a "_<id>" working dir (WR-01). Fall back to the
+    # video id so the output is always visible and non-colliding.
+    if [ -z "$SAFE_TITLE" ]; then
+        SAFE_TITLE="${VIDEO_ID:-transcribrr_output}"
+    fi
     # Append video ID for collision-free working directory naming (Pitfall 5)
     WORK_DIR="$(pwd)/${SAFE_TITLE}_${VIDEO_ID}"
 
