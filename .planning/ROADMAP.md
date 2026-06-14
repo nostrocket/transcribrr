@@ -23,7 +23,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 **Milestone Goal:** Discover the best current MLX models for each pipeline stage, benchmark them on this hardware with real outputs, let the user pick winners, and have the normal pipeline automatically use them as defaults.
 
-- [ ] **Phase 3: Candidate Config & Pipeline Settings Integration** - Candidate format defined, vetted initial list ships, and the normal pipeline reads a settings file with correct three-tier precedence
+- [x] **Phase 3: Candidate Config & Pipeline Settings Integration** - Candidate format defined, vetted initial list ships, and the normal pipeline reads a settings file with correct three-tier precedence (completed 2026-06-14)
 - [ ] **Phase 4: Benchmark Engine Core** - Hardware-aware sweep runs each fitting candidate in its own subprocess with warm-up, captures real speed/memory/output metrics, and shows live progress
 - [ ] **Phase 5: Resumable Sweep, Report & Winner Selection** - Sweep survives interruption, a comparison report surfaces real per-model results, and winner choices are written atomically to settings
 - [ ] **Phase 6: Claude Skill — Candidate Refresh** - A Claude Code skill researches and writes `candidates.conf`; `--benchmark` auto-launches it with graceful offline fallback and untrusted-output validation
@@ -42,8 +42,8 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   3. Passing `--whisper-model small` on the command line overrides a `settings.conf` that specifies a different model (flag always wins)
   4. A `settings.conf` referencing a non-existent or unloadable model produces a clear, actionable error message directing the user to `--benchmark`, not a cryptic load failure
   5. Any HF model ID from `candidates.conf` is accepted by the existing stage scripts via the `--model` flag without modifying those scripts**Plans**: 2 plans
-- [ ] 03-01-PLAN.md — config/candidates.conf vetted list, settings.conf.example, .gitignore (MODEL-01, MODEL-02)
-- [ ] 03-02-PLAN.md — transcribrr.sh three-tier precedence, settings.conf read, CFG-03 error, MODEL-03 confirm (MODEL-03, CFG-01/02/03)
+- [x] 03-01-PLAN.md — config/candidates.conf vetted list, settings.conf.example, .gitignore (MODEL-01, MODEL-02)
+- [x] 03-02-PLAN.md — transcribrr.sh three-tier precedence, settings.conf read, CFG-03 error, MODEL-03 confirm (MODEL-03, CFG-01/02/03)
 
 ### Phase 4: Benchmark Engine Core
 
@@ -100,7 +100,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 |-------|-----------|----------------|--------|-----------|
 | 1. Scriptable Pipeline Foundation | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
-| 3. Candidate Config & Pipeline Settings Integration | v2.0 | 0/2 | Planned | - |
+| 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete   | 2026-06-14 |
 | 4. Benchmark Engine Core | v2.0 | 0/TBD | Not started | - |
 | 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
