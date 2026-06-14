@@ -55,7 +55,15 @@ Plans:
   3. The final markdown filename is derived from the sanitized video title at a predictable path.
   4. If any stage fails, the script aborts with a message naming the failing stage and does not write a partial final markdown file.
 
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — URL auto-detection + conditional yt-dlp preflight + playlist rejection + metadata capture + MP3 download feeding the existing pipeline (DL-02/03/04, ROB-02)
+
+**Wave 2** *(blocked on Wave 1 completion — same file, sequential)*
+
+- [ ] 02-02-PLAN.md — Assemble single rich-header markdown (atomic temp+mv), transcript-variant selection, predictable filename, .gitignore working dirs (OUT-01/02/03, ROB-02/03)
 
 ## Progress
 
@@ -65,4 +73,4 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scriptable Pipeline Foundation | 2/2 | Complete   | 2026-06-14 |
-| 2. End-to-End YouTube-to-Markdown Delivery | 0/TBD | Not started | - |
+| 2. End-to-End YouTube-to-Markdown Delivery | 0/2 | Not started | - |
