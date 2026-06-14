@@ -1,6 +1,7 @@
 ---
 phase: quick
 plan: 260614-uhd
+status: complete
 subsystem: cli
 tags: [bash, homebrew, yt-dlp, ffmpeg, preflight]
 
