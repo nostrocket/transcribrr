@@ -81,6 +81,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260614-uhd | Auto-install missing deps (yt-dlp, ffmpeg) via Homebrew in preflight, with --no-install opt-out | 2026-06-14 | d8701a5 | [260614-uhd-auto-install-deps](./quick/260614-uhd-auto-install-deps/) |
+| 260615-1ek | Auto-install mlx-whisper into .venv on first run via setup_venv in transcribe.sh | 2026-06-15 | 998c43c | [260615-1ek-auto-install-mlx-whisper-into-venv-on-fi](./quick/260615-1ek-auto-install-mlx-whisper-into-venv-on-fi/) |
 
 ## Deferred Items
 
@@ -92,8 +93,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T15:42:59.009Z
-Stopped at: Phase 3 context gathered
+Last session: 2026-06-14T17:05:33Z
+Stopped at: Quick task 260615-1ek complete
 Resume file: .planning/phases/03-candidate-config-pipeline-settings-integration/03-CONTEXT.md
 
 ## Operator Next Steps
