@@ -14,7 +14,7 @@ This milestone delivers a single bash script that takes a YouTube URL all the wa
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Scriptable Pipeline Foundation** - Drive the existing MLX scripts unattended via flags, with dependency checks, help, and per-stage progress (completed 2026-06-14)
-- [ ] **Phase 2: End-to-End YouTube-to-Markdown Delivery** - Download + MP3 + metadata, then assemble one robust markdown file from a single command
+- [x] **Phase 2: End-to-End YouTube-to-Markdown Delivery** - Download + MP3 + metadata, then assemble one robust markdown file from a single command (completed 2026-06-14)
 
 ## Phase Details
 
@@ -73,4 +73,4 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scriptable Pipeline Foundation | 2/2 | Complete   | 2026-06-14 |
-| 2. End-to-End YouTube-to-Markdown Delivery | 2/2 | Complete   | 2026-06-14 |
+| 2. End-to-End YouTube-to-Markdown Delivery | 2/2 | Complete    | 2026-06-14 |

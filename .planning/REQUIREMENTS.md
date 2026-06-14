@@ -5,37 +5,44 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 ## v1 Requirements
 
 ### Download (DL)
+
 - [x] **DL-01**: User can run one command with a YouTube URL to start the full pipeline
 - [x] **DL-02**: Script downloads the video/audio from the URL using `yt-dlp`
 - [x] **DL-03**: Script exports audio to MP3 (via `yt-dlp -x --audio-format mp3` or `ffmpeg`)
 - [x] **DL-04**: Script captures video metadata (title, channel, URL, duration, upload date) for the output header
 
 ### Transcribe (TR)
+
 - [ ] **TR-01**: Script transcribes the MP3 by invoking `transcribe.sh` non-interactively
 - [ ] **TR-02**: Whisper model size is selectable via flag, defaulting to the README-recommended model
 - [x] **TR-03**: Script locates the transcript output file (`*_transcript_*.txt`) to feed the next stage
 
 ### Cleanup (CL)
+
 - [ ] **CL-01**: Script cleans the raw transcript by invoking `cleanup-transcript.sh` non-interactively
 - [ ] **CL-02**: Cleanup model is selectable via flag with a sensible default
 - [x] **CL-03**: Cleanup stage can be disabled via flag (e.g. `--no-cleanup`)
 
 ### Summarize (SUM)
+
 - [ ] **SUM-01**: Script summarizes the cleaned transcript by invoking `summarize-transcript.sh` non-interactively
 - [ ] **SUM-02**: Summary model and style are selectable via flags with sensible defaults
 - [x] **SUM-03**: Script locates the summary output (`*_summary_*.md`) to assemble the final file
 
 ### Output (OUT)
+
 - [x] **OUT-01**: Script writes ONE markdown file containing, in order: rich header, summary, full transcript
 - [x] **OUT-02**: Rich header includes video title, channel, source URL, duration, upload date, and the models used
 - [x] **OUT-03**: Final markdown filename is derived from the video title (sanitized) at a predictable path
 
 ### CLI & Unattended (CLI)
+
 - [ ] **CLI-01**: Script runs fully unattended when flags are supplied (no interactive prompts block it)
 - [x] **CLI-02**: Script prints usage/help describing the URL argument and all flags
 - [x] **CLI-03**: Script reports clear progress per stage (download → mp3 → transcribe → cleanup → summarize → assemble)
 
 ### Robustness (ROB)
+
 - [x] **ROB-01**: Script checks for required dependencies (`yt-dlp`, `ffmpeg`, existing scripts) and fails with a clear message if missing
 - [x] **ROB-02**: Script fails fast with an actionable message if any stage errors, naming the failing stage
 - [x] **ROB-03**: Intermediate artifacts are retained (or cleaned up) predictably; the final markdown is only written on full success
