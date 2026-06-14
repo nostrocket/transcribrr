@@ -26,9 +26,9 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 - [x] **SUM-03**: Script locates the summary output (`*_summary_*.md`) to assemble the final file
 
 ### Output (OUT)
-- [ ] **OUT-01**: Script writes ONE markdown file containing, in order: rich header, summary, full transcript
-- [ ] **OUT-02**: Rich header includes video title, channel, source URL, duration, upload date, and the models used
-- [ ] **OUT-03**: Final markdown filename is derived from the video title (sanitized) at a predictable path
+- [x] **OUT-01**: Script writes ONE markdown file containing, in order: rich header, summary, full transcript
+- [x] **OUT-02**: Rich header includes video title, channel, source URL, duration, upload date, and the models used
+- [x] **OUT-03**: Final markdown filename is derived from the video title (sanitized) at a predictable path
 
 ### CLI & Unattended (CLI)
 - [ ] **CLI-01**: Script runs fully unattended when flags are supplied (no interactive prompts block it)
@@ -37,8 +37,8 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 ### Robustness (ROB)
 - [x] **ROB-01**: Script checks for required dependencies (`yt-dlp`, `ffmpeg`, existing scripts) and fails with a clear message if missing
-- [ ] **ROB-02**: Script fails fast with an actionable message if any stage errors, naming the failing stage
-- [ ] **ROB-03**: Intermediate artifacts are retained (or cleaned up) predictably; the final markdown is only written on full success
+- [x] **ROB-02**: Script fails fast with an actionable message if any stage errors, naming the failing stage
+- [x] **ROB-03**: Intermediate artifacts are retained (or cleaned up) predictably; the final markdown is only written on full success
 
 ## v2 Requirements (deferred)
 
@@ -73,8 +73,8 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 | DL-02 | Phase 2 | Complete |
 | DL-03 | Phase 2 | Complete |
 | DL-04 | Phase 2 | Complete |
-| OUT-01 | Phase 2 | Pending |
-| OUT-02 | Phase 2 | Pending |
-| OUT-03 | Phase 2 | Pending |
-| ROB-02 | Phase 2 | Pending |
-| ROB-03 | Phase 2 | Pending |
+| OUT-01 | Phase 2 | Complete |
+| OUT-02 | Phase 2 | Complete |
+| OUT-03 | Phase 2 | Complete |
+| ROB-02 | Phase 2 | Complete |
+| ROB-03 | Phase 2 | Complete |

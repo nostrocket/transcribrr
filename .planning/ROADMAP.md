@@ -63,7 +63,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion — same file, sequential)*
 
-- [ ] 02-02-PLAN.md — Assemble single rich-header markdown (atomic temp+mv), transcript-variant selection, predictable filename, .gitignore working dirs (OUT-01/02/03, ROB-02/03)
+- [x] 02-02-PLAN.md — Assemble single rich-header markdown (atomic temp+mv), transcript-variant selection, predictable filename, .gitignore working dirs (OUT-01/02/03, ROB-02/03)
 
 ## Progress
 
@@ -73,4 +73,4 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scriptable Pipeline Foundation | 2/2 | Complete   | 2026-06-14 |
-| 2. End-to-End YouTube-to-Markdown Delivery | 1/2 | In progress | - |
+| 2. End-to-End YouTube-to-Markdown Delivery | 2/2 | Complete   | 2026-06-14 |
