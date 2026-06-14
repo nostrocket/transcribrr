@@ -4,7 +4,8 @@ set -euo pipefail
 
 # transcribrr.sh — End-to-end audio pipeline orchestrator
 # Drives transcribe.sh -> cleanup-transcript.sh -> summarize-transcript.sh unattended.
-# Usage: ./transcribrr.sh <audio.mp3> [options]
+# Accepts a YouTube URL (downloads audio via yt-dlp) or a local MP3 path.
+# Usage: ./transcribrr.sh <youtube-url|audio.mp3> [options]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -16,6 +17,9 @@ SUMMARY_MODEL="Qwen2.5-32B-4bit"
 SUMMARY_STYLE="blog"
 NO_CLEANUP=false
 MP3_FILE=""
+INPUT_ARG=""
+IS_URL=false
+URL=""
 
 # ── ERR trap — names the failing stage ───────────────────────────────────────
 
@@ -26,14 +30,20 @@ trap 'echo "Error: transcribrr.sh failed during stage: $CURRENT_STAGE" >&2' ERR
 
 print_help() {
     cat << 'EOF'
-Usage: transcribrr.sh <audio.mp3> [options]
+Usage: transcribrr.sh <youtube-url|audio.mp3> [options]
 
-  Transcribes, cleans, and summarizes an audio file using local MLX models.
+  Transcribes, cleans, and summarizes audio using local MLX models.
+  Give it a YouTube URL to download and process, or a local MP3 to process directly.
   Runs transcribe.sh -> cleanup-transcript.sh -> summarize-transcript.sh
   fully unattended with zero interactive prompts.
 
+  For YouTube URLs, video metadata (title, channel, duration, upload date) is
+  captured and included in the output markdown header. Some fields may show
+  "NA" for private or age-gated videos.
+
 Arguments:
-  <audio.mp3>             Path to an MP3 (or any ffmpeg-readable audio) file
+  <youtube-url|audio.mp3>  YouTube URL to download, or path to a local MP3
+                           (or any ffmpeg-readable audio) file
 
 Options:
   --whisper-model <label|hf-id>
@@ -67,6 +77,9 @@ Options:
   --help, -h              Show this help message and exit
 
 Examples:
+  transcribrr.sh https://www.youtube.com/watch?v=dQw4w9WgXcQ
+  transcribrr.sh https://youtu.be/dQw4w9WgXcQ --summary-style detailed
+  transcribrr.sh https://www.youtube.com/watch?v=dQw4w9WgXcQ --whisper-model turbo --no-cleanup
   transcribrr.sh talk.mp3
   transcribrr.sh talk.mp3 --whisper-model turbo --summary-style detailed
   transcribrr.sh talk.mp3 --no-cleanup --summary-model Qwen2.5-7B-4bit
@@ -109,11 +122,25 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            MP3_FILE="$1"
+            INPUT_ARG="$1"
             shift
             ;;
     esac
 done
+
+# ── URL vs local input detection (D-01) ──────────────────────────────────────
+# Must run before preflight_check so yt-dlp check is URL-conditional.
+
+if [[ "$INPUT_ARG" =~ ^https?:// ]] || [[ "$INPUT_ARG" =~ youtu\.?be ]]; then
+    IS_URL=true
+    URL="$INPUT_ARG"
+else
+    MP3_FILE="$INPUT_ARG"
+    # Derive SAFE_TITLE from the local input basename so the downstream assemble
+    # stage has SAFE_TITLE defined on both input paths (URL path sets it during
+    # the metadata stage; local path sets it here).
+    SAFE_TITLE=$(basename "$MP3_FILE" .mp3 | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+fi
 
 # ── Preflight check (D-10, ROB-01) ───────────────────────────────────────────
 # Accumulates ALL failures before aborting so the user can fix everything at once.
@@ -121,10 +148,17 @@ done
 preflight_check() {
     local errors=0
 
-    # Validate input file
-    if [ -z "$MP3_FILE" ] || [ ! -f "$MP3_FILE" ]; then
-        echo "Error: Input file not found: ${MP3_FILE:-<not specified>}" >&2
-        errors=$((errors + 1))
+    # Validate input (URL or local file)
+    if [ "$IS_URL" = true ]; then
+        if [ -z "$URL" ]; then
+            echo "Error: URL argument is empty." >&2
+            errors=$((errors + 1))
+        fi
+    else
+        if [ -z "$MP3_FILE" ] || [ ! -f "$MP3_FILE" ]; then
+            echo "Error: Input file not found: ${MP3_FILE:-<not specified>}" >&2
+            errors=$((errors + 1))
+        fi
     fi
 
     # Validate each required sub-script exists and is executable
@@ -143,6 +177,14 @@ preflight_check() {
     if ! command -v ffmpeg &>/dev/null; then
         echo "Error: ffmpeg not found on PATH. Install with: brew install ffmpeg" >&2
         errors=$((errors + 1))
+    fi
+
+    # Validate yt-dlp is available when processing a URL (DL-02, ROB-01)
+    if [ "$IS_URL" = true ]; then
+        if ! command -v yt-dlp &>/dev/null; then
+            echo "Error: yt-dlp not found on PATH. Install with: brew install yt-dlp" >&2
+            errors=$((errors + 1))
+        fi
     fi
 
     if [ "$errors" -gt 0 ]; then
@@ -164,10 +206,97 @@ stage_banner() {
 
 preflight_check
 
-# ── Stage 1: Transcribe (TR-03) ──────────────────────────────────────────────
+# ── URL-only stages: url-check, metadata, download ───────────────────────────
+
+if [ "$IS_URL" = true ]; then
+
+    # -- url-check: reject playlist URLs before any network call (ROB-02) -----
+
+    CURRENT_STAGE="url-check"
+    # Assign pattern to variable — bash requires this to avoid ERE character-class
+    # tokenization errors when the pattern contains & inside [[ =~ ]] (bash bug).
+    _PLAYLIST_PATTERN="[?&]list="
+    if [[ "$URL" =~ $_PLAYLIST_PATTERN ]] || [[ "$URL" =~ youtube\.com/playlist ]]; then
+        echo "Error: Playlist URLs are not supported in v1." >&2
+        echo "  To download a single video, remove the '&list=...' parameter from the URL." >&2
+        exit 1
+    fi
+
+    # -- metadata: capture title, channel, URL, duration, upload date, id -----
+
+    CURRENT_STAGE="metadata"
+    stage_banner "Stage 1/5: Fetching video metadata (yt-dlp)..."
+
+    mapfile -t META < <(yt-dlp \
+        --simulate \
+        --no-playlist \
+        --print "%(title)s" \
+        --print "%(channel|uploader)s" \
+        --print "%(webpage_url)s" \
+        --print "%(duration_string)s" \
+        --print "%(upload_date)s" \
+        --print "%(id)s" \
+        "$URL" 2>/dev/null)
+
+    # Explicit guard: set -e not inherited inside process substitution (SC2311)
+    if [ "${#META[@]}" -lt 6 ]; then
+        echo "Error: metadata stage returned fewer fields than expected (got ${#META[@]}, need 6)." >&2
+        exit 1
+    fi
+
+    VIDEO_TITLE="${META[0]}"
+    VIDEO_CHANNEL="${META[1]}"
+    VIDEO_URL="${META[2]}"
+    VIDEO_DURATION="${META[3]}"
+    VIDEO_UPLOAD_DATE_RAW="${META[4]}"
+    VIDEO_ID="${META[5]}"
+
+    # Reformat upload date from YYYYMMDD to YYYY-MM-DD (NA passes through unchanged)
+    if [[ "$VIDEO_UPLOAD_DATE_RAW" =~ ^[0-9]{8}$ ]]; then
+        VIDEO_UPLOAD_DATE=$(echo "$VIDEO_UPLOAD_DATE_RAW" | \
+            sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3/')
+    else
+        VIDEO_UPLOAD_DATE="$VIDEO_UPLOAD_DATE_RAW"
+    fi
+
+    # Sanitize title for safe filesystem use (Security: removes / and shell-meta chars)
+    SAFE_TITLE=$(echo "$VIDEO_TITLE" | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+    # Append video ID for collision-free working directory naming (Pitfall 5)
+    WORK_DIR="$(pwd)/${SAFE_TITLE}_${VIDEO_ID}"
+
+    # -- download: extract MP3 audio into per-video working directory ----------
+
+    CURRENT_STAGE="download"
+    stage_banner "Stage 2/5: Downloading audio (yt-dlp)..."
+
+    mkdir -p "$WORK_DIR"
+
+    MP3_FILE=$(yt-dlp \
+        -x --audio-format mp3 \
+        --no-playlist \
+        -o "${WORK_DIR}/%(title)s.%(ext)s" \
+        --print "after_move:filepath" \
+        "$URL")
+
+    # Guard: after_move:filepath can emit stale intermediate path (Pitfall 1)
+    if [ -z "$MP3_FILE" ] || [ ! -f "$MP3_FILE" ]; then
+        MP3_FILE=$(find "$WORK_DIR" -name "*.mp3" | sort | tail -1)
+        if [ -z "$MP3_FILE" ] || [ ! -f "$MP3_FILE" ]; then
+            echo "Error: download stage did not produce a valid MP3 file in $WORK_DIR" >&2
+            exit 1
+        fi
+    fi
+
+fi
+
+# ── Stage 1 (local) / Stage 3 (URL): Transcribe (TR-03) ─────────────────────
 
 CURRENT_STAGE="transcribe"
-stage_banner "Stage 1/3: Transcribing (whisper model: $WHISPER_MODEL)"
+if [ "$IS_URL" = true ]; then
+    stage_banner "Stage 3/5: Transcribing (whisper model: $WHISPER_MODEL)"
+else
+    stage_banner "Stage 1/3: Transcribing (whisper model: $WHISPER_MODEL)"
+fi
 
 STAGE_OUT=$("$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
     | tee /dev/stderr \
@@ -179,11 +308,16 @@ if [ -z "$TRANSCRIPT_FILE" ] || [ ! -f "$TRANSCRIPT_FILE" ]; then
     exit 1
 fi
 
-# ── Stage 2: Cleanup (CL-03, D-09) ──────────────────────────────────────────
+# ── Stage 2 (local) / Stage 4 (URL): Cleanup (CL-03, D-09) ──────────────────
 
+CLEANED_FILE=""
 if [ "$NO_CLEANUP" = false ]; then
     CURRENT_STAGE="cleanup"
-    stage_banner "Stage 2/3: Cleaning transcript (model: $CLEANUP_MODEL)"
+    if [ "$IS_URL" = true ]; then
+        stage_banner "Stage 4/5: Cleaning transcript (model: $CLEANUP_MODEL)"
+    else
+        stage_banner "Stage 2/3: Cleaning transcript (model: $CLEANUP_MODEL)"
+    fi
 
     STAGE_OUT=$("$SCRIPT_DIR/cleanup-transcript.sh" "$TRANSCRIPT_FILE" --model "$CLEANUP_MODEL" \
         | tee /dev/stderr \
@@ -201,10 +335,14 @@ else
     SUMMARIZE_INPUT="$TRANSCRIPT_FILE"
 fi
 
-# ── Stage 3: Summarize (SUM-03) ──────────────────────────────────────────────
+# ── Stage 3 (local) / Stage 5 (URL): Summarize (SUM-03) ─────────────────────
 
 CURRENT_STAGE="summarize"
-stage_banner "Stage 3/3: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
+if [ "$IS_URL" = true ]; then
+    stage_banner "Stage 5/5: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
+else
+    stage_banner "Stage 3/3: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
+fi
 
 STAGE_OUT=$("$SCRIPT_DIR/summarize-transcript.sh" "$SUMMARIZE_INPUT" \
     --model "$SUMMARY_MODEL" \
