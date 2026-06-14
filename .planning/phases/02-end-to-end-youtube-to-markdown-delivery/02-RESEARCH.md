@@ -544,27 +544,31 @@ stage_banner "Stage 5/5: Assembling final markdown"
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Working directory `.gitignore` coverage**
    - What we know: The final `.md` and `<title>/` working dir are not covered by existing `.gitignore`.
    - What's unclear: Does the user want to commit or keep the final `.md`? The intermediate working directory is clearly unwanted.
    - Recommendation: Add `*/` (or a more specific pattern) to `.gitignore` for the working dirs, and add a note in the plan; leave the final `.md` decision to the user.
+   - RESOLVED: 02-02 Task 2 adds the directory glob `*_*/` (matching the `<SAFE_TITLE>_<VIDEO_ID>/` working dirs) to `.gitignore`, with a comment that the root `*.md` output is intentionally NOT ignored so the user may keep it. Existing intermediate patterns are preserved.
 
 2. **Working directory naming collision**
    - What we know: CONTEXT.md assigns this to Claude's discretion.
    - What's unclear: Should the video ID be appended (guaranteed unique) or a timestamp (easier to read)?
    - Recommendation: Append the video ID from `%(id)s` in the metadata pass: `WORK_DIR="${SAFE_TITLE}_${VIDEO_ID}"`. One extra line in the metadata mapfile (6 fields instead of 5).
+   - RESOLVED: 02-01 Task 2 captures `%(id)s` as the 6th metadata field (`VIDEO_ID`) and sets `WORK_DIR="$(pwd)/${SAFE_TITLE}_${VIDEO_ID}"` — the `_${VIDEO_ID}` suffix guarantees collision-free per-video directories.
 
 3. **`EXIT` trap interaction with temp file cleanup**
    - What we know: `transcribrr.sh` currently has only an ERR trap, not an EXIT trap.
    - What's unclear: Will adding an EXIT trap for temp file cleanup interfere with the ERR trap behavior?
    - Recommendation: Bash ERR and EXIT traps coexist (different signals). The temp-file cleanup EXIT trap is safe to add. Use a cleanup function and `trap cleanup EXIT` to allow the function to handle both scenarios.
+   - RESOLVED: ERR and EXIT are distinct trap signals and coexist safely. 02-02 Task 1 adds an EXIT trap that removes `$TEMP_MD` on premature exit and clears it (`trap - EXIT`) immediately after the successful atomic `mv`, leaving the existing `$CURRENT_STAGE` ERR trap untouched.
 
 4. **yt-dlp version on the user's machine**
    - What we know: yt-dlp is NOT currently installed on the developer's machine (verified: `yt-dlp --version` returns NOT_INSTALLED).
    - What's unclear: Which version will be installed? The `--print after_move:filepath` behavior has minor version drift.
    - Recommendation: The preflight check should include a `brew upgrade yt-dlp` recommendation in the hint message, and execution should work with any yt-dlp version supporting `--print` (2021+).
+   - RESOLVED: Any yt-dlp version supporting `--print` (2021+) is acceptable; 02-01 Task 1's preflight enforces presence with the `brew install yt-dlp` hint, and 02-01 Task 2's download-stage file-existence guard (find-newest-`*.mp3` fallback) absorbs the `after_move:filepath` version drift.
 
 ---
 
