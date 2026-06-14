@@ -342,7 +342,7 @@ fi
 
 STAGE_OUT=$("$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
     | tee /dev/stderr \
-    | grep "^OUTPUT_FILE=")
+    | { grep "^OUTPUT_FILE=" || true; })
 TRANSCRIPT_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 if [ -z "$TRANSCRIPT_FILE" ] || [ ! -f "$TRANSCRIPT_FILE" ]; then
@@ -363,7 +363,7 @@ if [ "$NO_CLEANUP" = false ]; then
 
     STAGE_OUT=$("$SCRIPT_DIR/cleanup-transcript.sh" "$TRANSCRIPT_FILE" --model "$CLEANUP_MODEL" \
         | tee /dev/stderr \
-        | grep "^OUTPUT_FILE=")
+        | { grep "^OUTPUT_FILE=" || true; })
     CLEANED_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
     if [ -z "$CLEANED_FILE" ] || [ ! -f "$CLEANED_FILE" ]; then
@@ -390,7 +390,7 @@ STAGE_OUT=$("$SCRIPT_DIR/summarize-transcript.sh" "$SUMMARIZE_INPUT" \
     --model "$SUMMARY_MODEL" \
     --style "$SUMMARY_STYLE" \
     | tee /dev/stderr \
-    | grep "^OUTPUT_FILE=")
+    | { grep "^OUTPUT_FILE=" || true; })
 SUMMARY_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 if [ -z "$SUMMARY_FILE" ] || [ ! -f "$SUMMARY_FILE" ]; then
