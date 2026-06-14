@@ -1,0 +1,17 @@
+# Python virtual environment
+.venv/
+
+# Hugging Face model cache
+models/
+
+# Transcript output files
+*_transcript_*.txt
+*_transcription_*.log
+*_whisper_*.pid
+*_cleaned_*.txt
+*_summary_*.md
+
+# macOS
+.DS_Store
+**/.DS_Store
+._*
