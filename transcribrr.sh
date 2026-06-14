@@ -431,9 +431,20 @@ else
     stage_banner "Stage 1/3: Transcribing (whisper model: $WHISPER_MODEL)"
 fi
 
-STAGE_OUT=$("$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
-    | tee /dev/stderr \
-    | { grep "^OUTPUT_FILE=" || true; })
+_run_transcribe() {
+    "$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
+        | tee /dev/stderr \
+        | { grep "^OUTPUT_FILE=" || true; }
+}
+
+if ! STAGE_OUT=$(_run_transcribe); then
+    if [ "$WHISPER_MODEL_SOURCE" = "settings.conf" ]; then
+        echo "" >&2
+        echo "Error: whisper model '$WHISPER_MODEL' from config/settings.conf could not be loaded." >&2
+        echo "Fix: run \`transcribrr.sh --benchmark\` to reselect, or pass --whisper-model <label|hf-id>." >&2
+    fi
+    exit 1
+fi
 TRANSCRIPT_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 if [ -z "$TRANSCRIPT_FILE" ] || [ ! -f "$TRANSCRIPT_FILE" ]; then
@@ -452,9 +463,20 @@ if [ "$NO_CLEANUP" = false ]; then
         stage_banner "Stage 2/3: Cleaning transcript (model: $CLEANUP_MODEL)"
     fi
 
-    STAGE_OUT=$("$SCRIPT_DIR/cleanup-transcript.sh" "$TRANSCRIPT_FILE" --model "$CLEANUP_MODEL" \
-        | tee /dev/stderr \
-        | { grep "^OUTPUT_FILE=" || true; })
+    _run_cleanup() {
+        "$SCRIPT_DIR/cleanup-transcript.sh" "$TRANSCRIPT_FILE" --model "$CLEANUP_MODEL" \
+            | tee /dev/stderr \
+            | { grep "^OUTPUT_FILE=" || true; }
+    }
+
+    if ! STAGE_OUT=$(_run_cleanup); then
+        if [ "$CLEANUP_MODEL_SOURCE" = "settings.conf" ]; then
+            echo "" >&2
+            echo "Error: cleanup model '$CLEANUP_MODEL' from config/settings.conf could not be loaded." >&2
+            echo "Fix: run \`transcribrr.sh --benchmark\` to reselect, or pass --cleanup-model <label|hf-id>." >&2
+        fi
+        exit 1
+    fi
     CLEANED_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
     if [ -z "$CLEANED_FILE" ] || [ ! -f "$CLEANED_FILE" ]; then
@@ -477,11 +499,22 @@ else
     stage_banner "Stage 3/3: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
 fi
 
-STAGE_OUT=$("$SCRIPT_DIR/summarize-transcript.sh" "$SUMMARIZE_INPUT" \
-    --model "$SUMMARY_MODEL" \
-    --style "$SUMMARY_STYLE" \
-    | tee /dev/stderr \
-    | { grep "^OUTPUT_FILE=" || true; })
+_run_summarize() {
+    "$SCRIPT_DIR/summarize-transcript.sh" "$SUMMARIZE_INPUT" \
+        --model "$SUMMARY_MODEL" \
+        --style "$SUMMARY_STYLE" \
+        | tee /dev/stderr \
+        | { grep "^OUTPUT_FILE=" || true; }
+}
+
+if ! STAGE_OUT=$(_run_summarize); then
+    if [ "$SUMMARY_MODEL_SOURCE" = "settings.conf" ]; then
+        echo "" >&2
+        echo "Error: summary model '$SUMMARY_MODEL' from config/settings.conf could not be loaded." >&2
+        echo "Fix: run \`transcribrr.sh --benchmark\` to reselect, or pass --summary-model <label|hf-id>." >&2
+    fi
+    exit 1
+fi
 SUMMARY_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 if [ -z "$SUMMARY_FILE" ] || [ ! -f "$SUMMARY_FILE" ]; then
