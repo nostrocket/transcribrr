@@ -10,14 +10,30 @@ set -euo pipefail
 
 TRANSCRIPT_FILE=""
 INSTALL_ONLY=false
+MODEL_FLAG=""
+STYLE_FLAG=""
 
-for arg in "$@"; do
-    case $arg in
+while [[ $# -gt 0 ]]; do
+    case $1 in
         --install)
             INSTALL_ONLY=true
+            shift
+            ;;
+        --model)
+            MODEL_FLAG="$2"
+            shift 2
+            ;;
+        --style)
+            STYLE_FLAG="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
             ;;
         *)
-            TRANSCRIPT_FILE="$arg"
+            TRANSCRIPT_FILE="$1"
+            shift
             ;;
     esac
 done
@@ -76,55 +92,45 @@ fi
 
 # ── Model selection ──────────────────────────────────────────────────────────
 
-echo ""
-echo "Select Qwen model for summarization:"
-echo "  1) Qwen 2.5  7B  4-bit  - Fast, ~5 GB RAM"
-echo "  2) Qwen 2.5 14B  4-bit  - Good balance, ~9 GB RAM"
-echo "  3) Qwen 2.5 32B  4-bit  - Best quality ⭐ ~20 GB RAM"
-echo "  4) Qwen 2.5 32B  8-bit  - Highest quality, ~34 GB RAM"
-echo "  5) custom                - Enter a custom model name"
-echo ""
-read -p "Enter choice [1-5] (default: 3): " model_choice
-
-case "$model_choice" in
-    1) MODEL="mlx-community/Qwen2.5-7B-Instruct-4bit"   ; MODEL_LABEL="Qwen2.5-7B-4bit" ;;
-    2) MODEL="mlx-community/Qwen2.5-14B-Instruct-4bit"  ; MODEL_LABEL="Qwen2.5-14B-4bit" ;;
-    3|"") MODEL="mlx-community/Qwen2.5-32B-Instruct-4bit" ; MODEL_LABEL="Qwen2.5-32B-4bit" ;;
-    4) MODEL="mlx-community/Qwen2.5-32B-Instruct-8bit"  ; MODEL_LABEL="Qwen2.5-32B-8bit" ;;
-    5)
-        read -p "Enter model name: " MODEL
-        MODEL_LABEL="$MODEL"
-        if [ -z "$MODEL" ]; then
-            MODEL="mlx-community/Qwen2.5-32B-Instruct-4bit"
-            MODEL_LABEL="Qwen2.5-32B-4bit"
-        fi
-        ;;
-    *)
-        MODEL="mlx-community/Qwen2.5-32B-Instruct-4bit"
-        MODEL_LABEL="Qwen2.5-32B-4bit"
-        ;;
-esac
+if [ -n "$MODEL_FLAG" ]; then
+    if [[ "$MODEL_FLAG" == */* ]]; then
+        MODEL="$MODEL_FLAG"
+        # Apply same sanitization as cleanup-transcript.sh (fixes unsanitized label bug)
+        MODEL_LABEL=$(echo "$MODEL" | sed 's/mlx-community\///' | sed 's/[^a-zA-Z0-9.-]/_/g' | tr '[:upper:]' '[:lower:]')
+    else
+        case "$MODEL_FLAG" in
+            Qwen2.5-7B-4bit)  MODEL="mlx-community/Qwen2.5-7B-Instruct-4bit"  ; MODEL_LABEL="Qwen2.5-7B-4bit" ;;
+            Qwen2.5-14B-4bit) MODEL="mlx-community/Qwen2.5-14B-Instruct-4bit" ; MODEL_LABEL="Qwen2.5-14B-4bit" ;;
+            Qwen2.5-32B-4bit) MODEL="mlx-community/Qwen2.5-32B-Instruct-4bit" ; MODEL_LABEL="Qwen2.5-32B-4bit" ;;
+            Qwen2.5-32B-8bit) MODEL="mlx-community/Qwen2.5-32B-Instruct-8bit" ; MODEL_LABEL="Qwen2.5-32B-8bit" ;;
+            *)
+                echo "Error: Unknown summary model '$MODEL_FLAG'. Valid labels: Qwen2.5-7B-4bit Qwen2.5-14B-4bit Qwen2.5-32B-4bit Qwen2.5-32B-8bit" >&2
+                exit 1
+                ;;
+        esac
+    fi
+else
+    # Default: Qwen2.5-32B-4bit (README-recommended)
+    MODEL="mlx-community/Qwen2.5-32B-Instruct-4bit"
+    MODEL_LABEL="Qwen2.5-32B-4bit"
+fi
 
 # ── Summary style selection ──────────────────────────────────────────────────
 
-echo ""
-echo "Select summary style:"
-echo "  1) Executive    - 1-2 paragraph overview with key takeaways"
-echo "  2) Detailed     - Structured summary with sections and bullet points"
-echo "  3) Bullet-only  - Concise bullet-point list of main topics"
-echo "  4) Chapter      - Chapter-by-chapter breakdown with timestamps"
-echo "  5) Blog Post    - Compelling narrative optimized for engagement ⭐"
-echo ""
-read -p "Enter choice [1-5] (default: 5): " style_choice
-
-case "$style_choice" in
-    1) STYLE="executive" ;;
-    2) STYLE="detailed" ;;
-    3) STYLE="bullets" ;;
-    4) STYLE="chapters" ;;
-    5|"") STYLE="blog" ;;
-    *) STYLE="blog" ;;
-esac
+if [ -n "$STYLE_FLAG" ]; then
+    case "$STYLE_FLAG" in
+        executive|detailed|bullets|chapters|blog)
+            STYLE="$STYLE_FLAG"
+            ;;
+        *)
+            echo "Error: Unknown style '$STYLE_FLAG'. Valid styles: executive detailed bullets chapters blog" >&2
+            exit 1
+            ;;
+    esac
+else
+    # Default: blog (README-recommended)
+    STYLE="blog"
+fi
 
 BASENAME="${TRANSCRIPT_FILE%.*}"
 OUTPUT_FILE="${BASENAME}_summary_${MODEL_LABEL}_${STYLE}.md"
@@ -455,3 +461,4 @@ if [ "$STYLE" = "blog" ]; then
 else
     echo "Summary: $OUTPUT_FILE"
 fi
+echo "OUTPUT_FILE=$OUTPUT_FILE"
