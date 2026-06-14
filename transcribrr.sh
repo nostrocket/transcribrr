@@ -356,10 +356,78 @@ if [ -z "$SUMMARY_FILE" ] || [ ! -f "$SUMMARY_FILE" ]; then
     exit 1
 fi
 
-# ── Done ─────────────────────────────────────────────────────────────────────
+# ── Stage 5/5 (URL) / final (local): Assemble markdown (OUT-01, OUT-02, OUT-03) ──
+
+CURRENT_STAGE="assemble"
+if [ "$IS_URL" = true ]; then
+    stage_banner "Stage 5/5: Assembling final markdown..."
+else
+    stage_banner "Assembling final markdown..."
+fi
+
+# For local-MP3 input, VIDEO_* vars are not set — default them safely (set -u).
+# For URL input, these are already set from the metadata stage; defaults are never reached.
+_VID_TITLE="${VIDEO_TITLE:-$SAFE_TITLE}"
+_VID_CHANNEL="${VIDEO_CHANNEL:-NA}"
+_VID_URL="${VIDEO_URL:-NA}"
+_VID_DURATION="${VIDEO_DURATION:-NA}"
+
+# Reformat upload date for URL path (already set from metadata stage).
+# For local path, VIDEO_UPLOAD_DATE_RAW is unset; default to NA.
+_VID_DATE_RAW="${VIDEO_UPLOAD_DATE_RAW:-NA}"
+if [[ "$_VID_DATE_RAW" =~ ^[0-9]{8}$ ]]; then
+    _VID_DATE=$(echo "$_VID_DATE_RAW" | \
+        sed 's/\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)/\1-\2-\3/')
+else
+    _VID_DATE="$_VID_DATE_RAW"
+fi
+# For URL path, VIDEO_UPLOAD_DATE is already set by the metadata stage (may be reformatted
+# or NA-passthrough); prefer it if available so we don't re-reformat an already reformatted date.
+_VID_UPLOAD_DATE="${VIDEO_UPLOAD_DATE:-$_VID_DATE}"
+
+# Final markdown path: SAFE_TITLE is set by Plan 01 on both URL and local paths.
+FINAL_MD_PATH="$(pwd)/${SAFE_TITLE}.md"
+TEMP_MD=$(mktemp)
+# EXIT trap removes the temp file on premature exit; cleared after successful mv (ROB-03).
+trap 'rm -f "$TEMP_MD"' EXIT
+
+# Select transcript variant: cleaned when cleanup ran, raw when --no-cleanup (CONTEXT.md).
+if [ "$NO_CLEANUP" = false ] && [ -n "${CLEANED_FILE:-}" ] && [ -f "$CLEANED_FILE" ]; then
+    EMBED_TRANSCRIPT="$CLEANED_FILE"
+else
+    EMBED_TRANSCRIPT="$TRANSCRIPT_FILE"
+fi
+
+# Write document into temp file in order: title, metadata block, summary, transcript (OUT-01).
+# Use printf (not heredoc) so variable values are not re-expanded (Security Domain).
+{
+    printf "# %s\n\n" "$_VID_TITLE"
+    printf -- "- **Title:** %s\n" "$_VID_TITLE"
+    printf -- "- **Channel:** %s\n" "$_VID_CHANNEL"
+    printf -- "- **Source URL:** %s\n" "$_VID_URL"
+    printf -- "- **Duration:** %s\n" "$_VID_DURATION"
+    printf -- "- **Upload date:** %s\n" "$_VID_UPLOAD_DATE"
+    if [ "$NO_CLEANUP" = false ]; then
+        printf -- "- **Models used:** whisper=%s, cleanup=%s, summary=%s (%s)\n\n" \
+            "$WHISPER_MODEL" "$CLEANUP_MODEL" "$SUMMARY_MODEL" "$SUMMARY_STYLE"
+    else
+        printf -- "- **Models used:** whisper=%s, cleanup=skipped, summary=%s (%s)\n\n" \
+            "$WHISPER_MODEL" "$SUMMARY_MODEL" "$SUMMARY_STYLE"
+    fi
+    printf "## Summary\n\n"
+    # Strip summarize-transcript.sh's own header (# heading + metadata block + --- divider)
+    # so the assembled doc has a single top-level title (Pitfall 6).
+    sed '1,/^---/d' "$SUMMARY_FILE"
+    printf "\n## Transcript\n\n"
+    cat "$EMBED_TRANSCRIPT"
+} > "$TEMP_MD"
+
+# Atomic move: FINAL_MD_PATH exists only after full success (T-02-05 / ROB-03).
+mv "$TEMP_MD" "$FINAL_MD_PATH"
+trap - EXIT  # temp file safely moved; remove cleanup trap
 
 echo ""
 echo "=========================================="
 echo "  Pipeline complete!"
 echo "=========================================="
-echo "Summary written to: $SUMMARY_FILE"
+echo "Markdown: $FINAL_MD_PATH"
