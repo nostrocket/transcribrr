@@ -90,12 +90,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| uat | 01-HUMAN-UAT.md — 2 pending scenarios (local-MP3 pipeline run) | partial | v1.0 close (2026-06-14) |
-| uat | 02-HUMAN-UAT.md — 5 pending scenarios (URL→markdown pipeline run) | partial | v1.0 close (2026-06-14) |
-| verification | 01-VERIFICATION.md | human_needed | v1.0 close (2026-06-14) |
-| verification | 02-VERIFICATION.md | human_needed | v1.0 close (2026-06-14) |
+| *(none)* | | | |
 
-These require an Apple-Silicon machine with `yt-dlp` + `ffmpeg` + MLX models + network — run `/gsd-verify-work 1` and `/gsd-verify-work 2` to close them.
+**v1.0 UAT/verification closed 2026-06-14 on static verification** (operator-accepted). Phases 1 & 2 VERIFICATION.md → `passed`; HUMAN-UAT runtime scenarios recorded as `skipped` (not executed — no yt-dlp/MLX/network runtime test was performed). No outstanding deferred items.
 
 ## Session Continuity
 

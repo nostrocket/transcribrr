@@ -1,7 +1,8 @@
 ---
 phase: 01-scriptable-pipeline-foundation
 verified: 2026-06-14T12:00:00Z
-status: human_needed
+status: passed
+closure: human-verification waived 2026-06-14 — operator accepted static verification (5/5 automated must-haves passed); runtime UAT not executed (see 01-HUMAN-UAT.md — scenarios skipped)
 score: 5/5 must-haves verified
 overrides_applied: 0
 human_verification:
