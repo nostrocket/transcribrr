@@ -16,6 +16,7 @@ CLEANUP_MODEL="llama3.1-8b-4bit"
 SUMMARY_MODEL="Qwen2.5-32B-4bit"
 SUMMARY_STYLE="blog"
 NO_CLEANUP=false
+NO_INSTALL=false
 MP3_FILE=""
 INPUT_ARG=""
 IS_URL=false
@@ -74,6 +75,9 @@ Options:
                           Styles: executive, detailed, bullets, chapters, blog
                           Default: blog
 
+  --no-install            Do not auto-install missing dependencies; fail with an
+                          install hint instead (default: auto-install via Homebrew).
+
   --help, -h              Show this help message and exit
 
 Examples:
@@ -110,6 +114,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-cleanup)
             NO_CLEANUP=true
+            shift
+            ;;
+        --no-install)
+            NO_INSTALL=true
             shift
             ;;
         --help|-h)
@@ -152,6 +160,42 @@ else
     fi
 fi
 
+# ── ensure_dep: auto-install or hint for a missing dependency ────────────────
+# Usage: ensure_dep <command> <brew-formula>
+# Returns 0 if the command is available (after install if needed), 1 on failure.
+# Respects NO_INSTALL: when true, never attempts brew; just emits the hint.
+
+ensure_dep() {
+    local cmd="$1"
+    local formula="$2"
+
+    if command -v "$cmd" &>/dev/null; then
+        return 0
+    fi
+
+    if [ "$NO_INSTALL" = true ]; then
+        echo "Error: $cmd not found on PATH. Install with: brew install $formula (or drop --no-install to auto-install)." >&2
+        return 1
+    fi
+
+    # Auto-install path
+    if ! command -v brew &>/dev/null; then
+        echo "Error: $cmd not found and Homebrew (brew) is not installed; cannot auto-install. Install Homebrew (https://brew.sh) or install $cmd manually." >&2
+        return 1
+    fi
+
+    echo "Installing missing dependency: $cmd (brew install $formula)..." >&2
+    brew install "$formula"
+
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "Error: auto-install of $cmd via 'brew install $formula' did not produce a working '$cmd' on PATH." >&2
+        return 1
+    fi
+
+    echo "Installed $cmd." >&2
+    return 0
+}
+
 # ── Preflight check (D-10, ROB-01) ───────────────────────────────────────────
 # Accumulates ALL failures before aborting so the user can fix everything at once.
 
@@ -183,18 +227,12 @@ preflight_check() {
         fi
     done
 
-    # Validate ffmpeg is available (transcribe.sh uses it for duration)
-    if ! command -v ffmpeg &>/dev/null; then
-        echo "Error: ffmpeg not found on PATH. Install with: brew install ffmpeg" >&2
-        errors=$((errors + 1))
-    fi
+    # Validate ffmpeg is available (transcribe.sh uses it for duration); auto-install if needed
+    ensure_dep ffmpeg ffmpeg || errors=$((errors + 1))
 
-    # Validate yt-dlp is available when processing a URL (DL-02, ROB-01)
+    # Validate yt-dlp is available when processing a URL (DL-02, ROB-01); auto-install if needed
     if [ "$IS_URL" = true ]; then
-        if ! command -v yt-dlp &>/dev/null; then
-            echo "Error: yt-dlp not found on PATH. Install with: brew install yt-dlp" >&2
-            errors=$((errors + 1))
-        fi
+        ensure_dep yt-dlp yt-dlp || errors=$((errors + 1))
     fi
 
     if [ "$errors" -gt 0 ]; then
