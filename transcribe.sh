@@ -35,11 +35,21 @@ trap cleanup SIGINT SIGTERM
 
 # Parse arguments
 AUDIO_FILE=""
+MODEL_FLAG=""
 
-for arg in "$@"; do
-    case $arg in
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --model)
+            MODEL_FLAG="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
         *)
-            AUDIO_FILE="$arg"
+            AUDIO_FILE="$1"
+            shift
             ;;
     esac
 done
@@ -87,60 +97,31 @@ else
     echo "Audio duration: $DURATION_STR (${TOTAL_SECONDS%.*} seconds)"
 fi
 
-# Ask user for model size
-echo ""
-echo "Select Whisper model:"
-echo "  1) tiny       - Fastest, lowest quality (39M parameters)"
-echo "  2) base       - Fast, good quality (74M parameters)"
-echo "  3) small      - Balanced (244M parameters) ⭐ RECOMMENDED"
-echo "  4) medium     - High quality, slower (769M parameters)"
-echo "  5) large-v3   - Best quality, slowest (1550M parameters)"
-echo "  6) turbo      - Near-large quality, much faster (809M parameters)"
-echo "  7) custom     - Enter a custom Hugging Face model name"
-echo ""
-read -p "Enter choice [1-7] (default: 3): " model_choice
-
-# Map choice to mlx-community model name
-case "$model_choice" in
-    1)
-        MODEL_SIZE="mlx-community/whisper-tiny"
-        MODEL_LABEL="tiny"
-        ;;
-    2)
-        MODEL_SIZE="mlx-community/whisper-base-mlx"
-        MODEL_LABEL="base"
-        ;;
-    3|"")
-        MODEL_SIZE="mlx-community/whisper-small-mlx"
-        MODEL_LABEL="small"
-        ;;
-    4)
-        MODEL_SIZE="mlx-community/whisper-medium-mlx"
-        MODEL_LABEL="medium"
-        ;;
-    5)
-        MODEL_SIZE="mlx-community/whisper-large-v3-mlx"
-        MODEL_LABEL="large-v3"
-        ;;
-    6)
-        MODEL_SIZE="mlx-community/whisper-large-v3-turbo"
-        MODEL_LABEL="turbo"
-        ;;
-    7)
-        read -p "Enter Hugging Face model name (e.g. mlx-community/whisper-large-v3-turbo): " MODEL_SIZE
-        MODEL_LABEL="$MODEL_SIZE"
-        if [ -z "$MODEL_SIZE" ]; then
-            echo "No model specified. Using 'small'."
-            MODEL_SIZE="mlx-community/whisper-small-mlx"
-            MODEL_LABEL="small"
-        fi
-        ;;
-    *)
-        echo "Invalid choice. Using 'small' model."
-        MODEL_SIZE="mlx-community/whisper-small-mlx"
-        MODEL_LABEL="small"
-        ;;
-esac
+# Select model via flag (or use default)
+if [ -n "$MODEL_FLAG" ]; then
+    if [[ "$MODEL_FLAG" == */* ]]; then
+        # Raw HF model ID — apply same sanitization as cleanup-transcript.sh line 50
+        MODEL_SIZE="$MODEL_FLAG"
+        MODEL_LABEL=$(echo "$MODEL_FLAG" | sed 's/mlx-community\///' | sed 's/[^a-zA-Z0-9.-]/_/g' | tr '[:upper:]' '[:lower:]')
+    else
+        case "$MODEL_FLAG" in
+            tiny)     MODEL_SIZE="mlx-community/whisper-tiny"           ; MODEL_LABEL="tiny" ;;
+            base)     MODEL_SIZE="mlx-community/whisper-base-mlx"       ; MODEL_LABEL="base" ;;
+            small)    MODEL_SIZE="mlx-community/whisper-small-mlx"      ; MODEL_LABEL="small" ;;
+            medium)   MODEL_SIZE="mlx-community/whisper-medium-mlx"     ; MODEL_LABEL="medium" ;;
+            large-v3) MODEL_SIZE="mlx-community/whisper-large-v3-mlx"   ; MODEL_LABEL="large-v3" ;;
+            turbo)    MODEL_SIZE="mlx-community/whisper-large-v3-turbo" ; MODEL_LABEL="turbo" ;;
+            *)
+                echo "Error: Unknown whisper model '$MODEL_FLAG'. Valid labels: tiny base small medium large-v3 turbo" >&2
+                exit 1
+                ;;
+        esac
+    fi
+else
+    # Default: small (README-recommended)
+    MODEL_SIZE="mlx-community/whisper-small-mlx"
+    MODEL_LABEL="small"
+fi
 
 echo ""
 echo "Using model: $MODEL_SIZE"
@@ -273,6 +254,7 @@ echo ""
 if [ $EXIT_CODE -eq 0 ]; then
     echo "Done!"
     echo "Transcript: $OUTPUT_FILE"
+    echo "OUTPUT_FILE=$OUTPUT_FILE"
     echo "Progress log: $LOG_FILE"
 else
     echo ""
