@@ -28,7 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The script locates each stage's output file (`*_transcript_*.txt`, `*_cleaned_*.txt`, `*_summary_*.md`) and passes it to the next stage without the user supplying paths.
   4. `--help` prints usage (URL/file argument and all flags); a missing dependency or existing script aborts with a clear, named message.
   5. The script prints which stage is running (transcribe → cleanup → summarize) as it progresses.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Make the three MLX sub-scripts non-interactive (flag-driven) and emit OUTPUT_FILE=
+- [ ] 01-02-PLAN.md — Create transcribrr.sh orchestrator (preflight, stage chaining, --no-cleanup, help, progress) + SKELETON.md
 
 ### Phase 2: End-to-End YouTube-to-Markdown Delivery
 **Goal**: From a single command with a YouTube URL, the script downloads audio to MP3, captures video metadata, runs the full pipeline from Phase 1, and assembles one markdown file (rich header → summary → full transcript) — failing fast with a named stage on any error and only writing the final file on full success.
@@ -49,5 +53,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scriptable Pipeline Foundation | 0/TBD | Not started | - |
+| 1. Scriptable Pipeline Foundation | 0/2 | Planned | - |
 | 2. End-to-End YouTube-to-Markdown Delivery | 0/TBD | Not started | - |
