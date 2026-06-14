@@ -738,17 +738,17 @@ TRANSCRIPT_FILE="${STAGE_OUT#OUTPUT_FILE=}"
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`transcribe.sh` `.venv` bootstrap**
+1. **`transcribe.sh` `.venv` bootstrap** — RESOLVED
    - What we know: `transcribe.sh` checks for `.venv/bin/mlx_whisper` and aborts if absent. `summarize-transcript.sh` auto-installs `mlx-lm` (which includes `mlx-whisper` CLI? — not confirmed) via `setup_venv`.
    - What's unclear: Does `mlx-lm`'s pip install also install the `mlx_whisper` CLI, or are they separate packages? The README says `transcribe.sh` dependencies are auto-installed into `.venv/` (mlx-whisper), but the script itself does NOT auto-install.
-   - Recommendation: The planner should include a Wave 0 or preflight task to verify `.venv` bootstrap instructions. The orchestrator's preflight check should detect a missing `.venv/bin/mlx_whisper` and print: `"Error: mlx_whisper not found. Run: ./transcribe.sh <any.mp3> and follow setup instructions, or: pip install mlx-whisper into .venv"`.
+   - **Resolution:** Out of scope for Phase 1 to auto-bootstrap `.venv`. Documented as Assumption A2. The orchestrator's preflight (Plan 01-02 Task 1, D-10) checks sub-script executability and `ffmpeg`; `.venv` bootstrap remains the user's responsibility per the README (`./summarize-transcript.sh --install` first). The end-to-end human check (Plan 01-02 Task 2) lists the bootstrap in its `read_first` so the executor runs `--install` before the smoke test. Plans do not duplicate the bootstrap logic.
 
-2. **`summarize-transcript.sh` custom model label containing `/`**
+2. **`summarize-transcript.sh` custom model label containing `/`** — RESOLVED
    - What we know: The existing bug (unsanitized label when custom HF ID is passed) will cause `open()` failure in the Python block.
    - What's unclear: Whether any existing users rely on the current (broken) behavior for custom models.
-   - Recommendation: Fix silently as part of the flag refactor — apply the same sanitization as `cleanup-transcript.sh`. This is a bug fix, not a behavior change.
+   - **Resolution:** Fixed silently as part of the flag refactor in Plan 01-01 Task 3 — apply the canonical sanitizer from `cleanup-transcript.sh` line 50 when a `/`-containing `--model` value is passed. This is a bug fix, not a behavior change for existing users.
 
 ---
 

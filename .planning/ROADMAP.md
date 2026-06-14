@@ -7,6 +7,7 @@ This milestone delivers a single bash script that takes a YouTube URL all the wa
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -18,32 +19,42 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Scriptable Pipeline Foundation
+
 **Goal**: A single new bash script accepts a local MP3 and runs transcribe → cleanup → summarize fully unattended, selecting models/style by flag and locating each stage's output to feed the next — with dependency checks, `--help`, and clear per-stage progress.
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
 **Requirements**: DL-01, CLI-01, CLI-02, CLI-03, ROB-01, TR-01, TR-02, TR-03, CL-01, CL-02, CL-03, SUM-01, SUM-02, SUM-03
 **Success Criteria** (what must be TRUE):
+
   1. Running the new script with an MP3 and flags completes transcribe → cleanup → summarize with zero interactive prompts (the existing scripts' `read -p` selections are satisfied non-interactively).
   2. Whisper model, cleanup model, and summary model/style are each chosen via flags, defaulting to the README-recommended models, and `--no-cleanup` skips the cleanup stage.
   3. The script locates each stage's output file (`*_transcript_*.txt`, `*_cleaned_*.txt`, `*_summary_*.md`) and passes it to the next stage without the user supplying paths.
   4. `--help` prints usage (URL/file argument and all flags); a missing dependency or existing script aborts with a clear, named message.
   5. The script prints which stage is running (transcribe → cleanup → summarize) as it progresses.
-**Plans**: 2 plans
 
+**Plans**: 2 plans
 Plans:
+**Wave 1**
+
 - [ ] 01-01-PLAN.md — Make the three MLX sub-scripts non-interactive (flag-driven) and emit OUTPUT_FILE=
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 01-02-PLAN.md — Create transcribrr.sh orchestrator (preflight, stage chaining, --no-cleanup, help, progress) + SKELETON.md
 
 ### Phase 2: End-to-End YouTube-to-Markdown Delivery
+
 **Goal**: From a single command with a YouTube URL, the script downloads audio to MP3, captures video metadata, runs the full pipeline from Phase 1, and assembles one markdown file (rich header → summary → full transcript) — failing fast with a named stage on any error and only writing the final file on full success.
 **Mode:** mvp
 **Depends on**: Phase 1
 **Requirements**: DL-02, DL-03, DL-04, OUT-01, OUT-02, OUT-03, ROB-02, ROB-03
 **Success Criteria** (what must be TRUE):
+
   1. Given a YouTube URL, the script downloads and exports MP3 audio via `yt-dlp`/`ffmpeg` and captures title, channel, source URL, duration, and upload date.
   2. The script produces exactly one markdown file containing, in order, a rich header (title, channel, URL, duration, upload date, models used), the summary, and the full transcript.
   3. The final markdown filename is derived from the sanitized video title at a predictable path.
   4. If any stage fails, the script aborts with a message naming the failing stage and does not write a partial final markdown file.
+
 **Plans**: TBD
 
 ## Progress
