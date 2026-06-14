@@ -67,15 +67,31 @@ fi
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/.venv"
+PYTHON="$VENV_DIR/bin/python"
+PIP="$VENV_DIR/bin/pip"
 
-# Use the virtual environment's mlx_whisper
-WHISPER_CMD="$SCRIPT_DIR/.venv/bin/mlx_whisper"
+# ── Ensure virtual environment and mlx-whisper ───────────────────────────────
 
-if [ ! -f "$WHISPER_CMD" ]; then
-    echo "Error: mlx_whisper not found at $WHISPER_CMD"
-    echo "Please install it first with: pip install mlx-whisper"
-    exit 1
-fi
+setup_venv() {
+    if [ ! -d "$VENV_DIR" ]; then
+        echo "Creating virtual environment at $VENV_DIR ..."
+        python3 -m venv "$VENV_DIR"
+    fi
+
+    # Check if mlx_whisper is installed
+    if ! "$PYTHON" -c "import mlx_whisper" 2>/dev/null; then
+        echo "Installing mlx-whisper (MLX Whisper transcription framework)..."
+        "$PIP" install --upgrade pip > /dev/null
+        "$PIP" install mlx-whisper
+        echo ""
+        echo "mlx-whisper installed successfully."
+    fi
+}
+
+setup_venv
+
+WHISPER_CMD="$VENV_DIR/bin/mlx_whisper"
 
 BASENAME="${AUDIO_FILE%.*}"
 AUDIO_DIR="$(dirname "$AUDIO_FILE")"
