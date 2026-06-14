@@ -227,7 +227,20 @@ if [ "$IS_URL" = true ]; then
     CURRENT_STAGE="metadata"
     stage_banner "Stage 1/5: Fetching metadata and downloading audio (yt-dlp)..."
 
-    mapfile -t META < <(yt-dlp \
+    # Expected number of --print fields below. Keep in lockstep with the
+    # --print list and the field assignments (IN-03).
+    EXPECTED_META_FIELDS=6
+
+    # bash 3.2 (stock macOS /bin/bash) has no mapfile/readarray, so populate the
+    # array with a portable read loop instead (CR-01). yt-dlp's stderr is
+    # captured to a temp file so actionable errors (bot-detection, age-gating,
+    # geo-block, stale yt-dlp) can be surfaced on failure rather than swallowed
+    # by 2>/dev/null (WR-03).
+    META_ERR=$(mktemp)
+    META=()
+    while IFS= read -r line; do
+        META+=("$line")
+    done < <(yt-dlp \
         --simulate \
         --no-playlist \
         --print "%(title)s" \
@@ -236,13 +249,26 @@ if [ "$IS_URL" = true ]; then
         --print "%(duration_string)s" \
         --print "%(upload_date)s" \
         --print "%(id)s" \
-        "$URL" 2>/dev/null)
+        "$URL" 2>"$META_ERR")
 
-    # Explicit guard: set -e not inherited inside process substitution (SC2311)
-    if [ "${#META[@]}" -lt 6 ]; then
-        echo "Error: metadata stage returned fewer fields than expected (got ${#META[@]}, need 6)." >&2
+    # Exact field-count guard (CR-02): yt-dlp emits one line per field, but a
+    # title or channel containing a newline splits across slots and silently
+    # shifts every later field down (corrupting VIDEO_ID, channel, and the
+    # output paths). A "-lt 6" lower-bound check passes such misaligned input;
+    # an exact "-ne 6" check turns the silent corruption into a loud failure.
+    # set -e is not inherited inside process substitution, so this guard is the
+    # only thing that catches a metadata failure (SC2311).
+    if [ "${#META[@]}" -ne "$EXPECTED_META_FIELDS" ]; then
+        echo "Error: metadata stage returned ${#META[@]} field(s), expected exactly $EXPECTED_META_FIELDS." >&2
+        echo "  A video title or channel name containing a newline can cause this." >&2
+        if [ -s "$META_ERR" ]; then
+            echo "  yt-dlp reported:" >&2
+            sed 's/^/    /' "$META_ERR" >&2
+        fi
+        rm -f "$META_ERR"
         exit 1
     fi
+    rm -f "$META_ERR"
 
     VIDEO_TITLE="${META[0]}"
     VIDEO_CHANNEL="${META[1]}"
