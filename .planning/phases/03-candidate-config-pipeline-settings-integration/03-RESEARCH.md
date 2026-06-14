@@ -592,17 +592,17 @@ config/settings.conf
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **`mlx-community/Qwen3-8B-4bit` vs `Qwen/Qwen3-8B-MLX-4bit` for cleanup stage**
    - What we know: Both exist. `mlx-community/Qwen3-8B-4bit` (4.61 GB) is the mlx-community conversion of the base model. `Qwen/Qwen3-8B-MLX-4bit` is the Qwen org's own MLX conversion. The FEATURES.md research listed `Qwen/Qwen3-8B-MLX-4bit` as 4.3 GB.
    - What's unclear: Which is preferred for the cleanup stage? Base Qwen3 models do instruction-follow via chat template, but dedicated Instruct models may have better RLHF for structured tasks.
-   - Recommendation: Use `mlx-community/Qwen3-8B-4bit` (mlx-community org is the standard source for this project per the existing model ID patterns). The benchmark will determine actual quality difference.
+   - RESOLVED: Use `mlx-community/Qwen3-8B-4bit` (mlx-community org is the standard source for this project per the existing model ID patterns). The benchmark will determine actual quality difference. The shipped candidates.conf in this RESEARCH's Code Examples commits to this ID.
 
 2. **`Qwen/Qwen3-14B-MLX-4bit` uses the `Qwen` org, not `mlx-community`**
    - What we know: There is no `mlx-community/Qwen3-14B-Instruct-4bit`. The mlx-community version `mlx-community/Qwen3-14B-4bit` is the base model (8.31 GB). The `Qwen/Qwen3-14B-MLX-4bit` (7.85 GB) is confirmed instruct-capable.
    - What's unclear: Does the stage script's HF ID passthrough (`*/*`) work identically for `Qwen/Qwen3-14B-MLX-4bit` as for `mlx-community/*` IDs? The sanitizer in cleanup-transcript.sh:50 strips `mlx-community/` specifically — `Qwen/` org prefix will pass through but the label will sanitize as `qwen3-14b-mlx-4bit` instead of stripping the org prefix.
-   - Recommendation: The label in candidates.conf (`Qwen3-14B-4bit`) is what the benchmark uses for display; the raw HF ID goes through `--model`. MODEL-03 is satisfied — the `*/*` check passes for `Qwen/Qwen3-14B-MLX-4bit`. The sanitized filename label will just include `qwen_` prefix instead of stripping it. No blocker.
+   - RESOLVED: Use `Qwen/Qwen3-14B-MLX-4bit` as the `id=` in candidates.conf. The label (`Qwen3-14B-4bit`) is what the benchmark uses for display; the raw HF ID goes through `--model`. MODEL-03 is satisfied — the `*/*` check passes for `Qwen/Qwen3-14B-MLX-4bit`. The sanitized filename label will just include a `qwen_` prefix instead of stripping it. No blocker.
 
 ---
 
