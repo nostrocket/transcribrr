@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Model Benchmarking & Auto-Selection
 status: planning
-last_updated: "2026-06-14T14:44:29.907Z"
+last_updated: "2026-06-14"
 last_activity: 2026-06-14
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,33 +20,36 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** One command takes a YouTube URL to a finished markdown file (summary + full transcript) reliably and unattended — reusing the existing MLX scripts.
-**Current focus:** Phase 02 — end-to-end-youtube-to-markdown-delivery
+**Current focus:** Phase 3 — Candidate Config & Pipeline Settings Integration
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 3 of 6 (Candidate Config & Pipeline Settings Integration)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-14 — Milestone v2.0 started
+Status: Ready to plan
+Last activity: 2026-06-14 — v2.0 roadmap created (Phases 3–6)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3 (Phase 02)
+- Total plans completed: 4 (v1.0 Phases 1–2)
 - Average duration: 5m
-- Total execution time: 5m
+- Total execution time: ~20m
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 02 | 2 | - | - |
+| 01 | 2 | ~10m | ~5m |
+| 02 | 2 | ~10m | ~5m |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-01 (5m), 02-02 (2m)
-- Trend: -
+- Last 4 plans: 01-01, 01-02, 02-01, 02-02
+- Trend: Stable
 
 *Updated after each plan completion*
 
@@ -57,17 +60,11 @@ Last activity: 2026-06-14 — Milestone v2.0 started
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Use `yt-dlp` (not a Go library): most reliable downloader against YouTube's 2026 changes.
-- Single bash script, no Go: matches existing repo idiom, removes a toolchain.
-- Orchestrate existing MLX scripts as-is rather than reimplementing transcription/summarization.
-- IS_URL detection runs after flag loop, before preflight_check — yt-dlp check stays URL-conditional.
-- SAFE_TITLE derived from basename at local-input detection time (not assemble time) to prevent set -u crash.
-- Playlist pattern uses variable `_PLAYLIST_PATTERN` to avoid bash ERE & tokenization bug in [[ =~ ]].
-- WORK_DIR uses SAFE_TITLE_VIDEO_ID for collision-free per-video directories.
-- VIDEO_* metadata fields defaulted with ${VAR:-NA} in assemble stage for local-MP3 path safety.
-- VIDEO_UPLOAD_DATE preferred over re-reformat in assemble to avoid double-processing.
-- printf used (not heredoc) in assemble stage to prevent variable re-expansion.
-- EXIT trap set before TEMP_MD write, cleared after successful mv — interacts safely with ERR trap.
+- v2.0 roadmap: Phase 3 (config/settings) before Phase 4 (benchmark engine) — settings.conf format must exist before the sweep writes it
+- v2.0 roadmap: Skill integration (Phase 6) deferred until after a working sweep accepts a hand-authored candidates.conf (Phase 4 + 5 complete)
+- v2.0 roadmap: subprocess-per-candidate is the mandatory architecture for benchmark (MLX Metal memory not released within one process)
+- v2.0 roadmap: Never source config/candidates.conf — parse with grep/while read to prevent injection from skill-written content
+- v1.0: Bash 3.2.57 compat enforced — no mapfile, no declare -A, no float in (( )), LC_NUMERIC=C for bc
 
 ### Pending Todos
 
@@ -75,7 +72,8 @@ None yet.
 
 ### Blockers/Concerns
 
-- (resolved in v1.0) The three sub-scripts are now flag-driven and non-interactive.
+- SKILL phase (6) carries highest integration risk: headless `claude -p` permission-mode behaviour, skill auto-trigger recursion (Pitfall 11), and untrusted output validation (Pitfall 9) all require careful design.
+- Benchmark timing accuracy depends on models being pre-downloaded before sweep starts (Pitfall 1 — download time absorbed into RTF).
 
 ### Quick Tasks Completed
 
@@ -89,16 +87,14 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
-
-**v1.0 UAT/verification closed 2026-06-14 on static verification** (operator-accepted). Phases 1 & 2 VERIFICATION.md → `passed`; HUMAN-UAT runtime scenarios recorded as `skipped` (not executed — no yt-dlp/MLX/network runtime test was performed). No outstanding deferred items.
+| UAT | Real yt-dlp/MLX/network hands-on pipeline run (Phases 1–2) | Pending | v1.0 close |
 
 ## Session Continuity
 
-Last session: 2026-06-14T12:04:00Z
-Stopped at: Completed 02-02-PLAN.md — milestone complete
+Last session: 2026-06-14
+Stopped at: v2.0 roadmap created — Phases 3–6 defined, REQUIREMENTS.md traceability filled
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Start Phase 3 with `/gsd-plan-phase 3`
