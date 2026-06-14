@@ -225,7 +225,7 @@ if [ "$IS_URL" = true ]; then
     # -- metadata: capture title, channel, URL, duration, upload date, id -----
 
     CURRENT_STAGE="metadata"
-    stage_banner "Stage 1/5: Fetching video metadata (yt-dlp)..."
+    stage_banner "Stage 1/5: Fetching metadata and downloading audio (yt-dlp)..."
 
     mapfile -t META < <(yt-dlp \
         --simulate \
@@ -267,7 +267,7 @@ if [ "$IS_URL" = true ]; then
     # -- download: extract MP3 audio into per-video working directory ----------
 
     CURRENT_STAGE="download"
-    stage_banner "Stage 2/5: Downloading audio (yt-dlp)..."
+    stage_banner "Stage 1/5: Downloading audio (yt-dlp)..."
 
     mkdir -p "$WORK_DIR"
 
@@ -293,7 +293,7 @@ fi
 
 CURRENT_STAGE="transcribe"
 if [ "$IS_URL" = true ]; then
-    stage_banner "Stage 3/5: Transcribing (whisper model: $WHISPER_MODEL)"
+    stage_banner "Stage 2/5: Transcribing (whisper model: $WHISPER_MODEL)"
 else
     stage_banner "Stage 1/3: Transcribing (whisper model: $WHISPER_MODEL)"
 fi
@@ -314,7 +314,7 @@ CLEANED_FILE=""
 if [ "$NO_CLEANUP" = false ]; then
     CURRENT_STAGE="cleanup"
     if [ "$IS_URL" = true ]; then
-        stage_banner "Stage 4/5: Cleaning transcript (model: $CLEANUP_MODEL)"
+        stage_banner "Stage 3/5: Cleaning transcript (model: $CLEANUP_MODEL)"
     else
         stage_banner "Stage 2/3: Cleaning transcript (model: $CLEANUP_MODEL)"
     fi
@@ -339,7 +339,7 @@ fi
 
 CURRENT_STAGE="summarize"
 if [ "$IS_URL" = true ]; then
-    stage_banner "Stage 5/5: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
+    stage_banner "Stage 4/5: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
 else
     stage_banner "Stage 3/3: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
 fi
