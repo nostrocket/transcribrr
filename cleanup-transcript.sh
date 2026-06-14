@@ -5,7 +5,25 @@
 
 set -euo pipefail
 
-TRANSCRIPT_FILE="${1:-}"
+TRANSCRIPT_FILE=""
+MODEL_FLAG=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --model)
+            MODEL_FLAG="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            TRANSCRIPT_FILE="$1"
+            shift
+            ;;
+    esac
+done
 
 if [ -z "$TRANSCRIPT_FILE" ] || [ ! -f "$TRANSCRIPT_FILE" ]; then
     echo "Usage: $0 <transcript_file>"
@@ -23,39 +41,29 @@ if [ ! -f "$PYTHON" ]; then
 fi
 
 BASENAME="${TRANSCRIPT_FILE%.*}"
-OUTPUT_FILE="${BASENAME}_cleaned.txt"
 
-# Model selection
-echo ""
-echo "Select LLM for transcript cleanup:"
-echo "  1) Llama 3.2 1B   - Fastest, ~1 GB RAM"
-echo "  2) Llama 3.2 3B   - Fast, ~2 GB RAM"
-echo "  3) Llama 3.1 8B   - Best balance (recommended) ⭐ ~5 GB RAM"
-echo "  4) Llama 3.1 8B 8-bit - Higher quality, ~8 GB RAM"
-echo "  5) custom          - Enter a custom model name"
-echo ""
-read -p "Enter choice [1-5] (default: 3): " llm_choice
-
-case "$llm_choice" in
-    1) MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit" ; MODEL_LABEL="llama3.2-1b-4bit" ;;
-    2) MODEL="mlx-community/Llama-3.2-3B-Instruct-4bit" ; MODEL_LABEL="llama3.2-3b-4bit" ;;
-    3|"") MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-4bit" ; MODEL_LABEL="llama3.1-8b-4bit" ;;
-    4) MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-8bit" ; MODEL_LABEL="llama3.1-8b-8bit" ;;
-    5)
-        read -p "Enter model name: " MODEL
-        if [ -z "$MODEL" ]; then
-            MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
-            MODEL_LABEL="llama3.1-8b-4bit"
-        else
-            MODEL_LABEL=$(echo "$MODEL" | sed 's/mlx-community\///' | sed 's/[^a-zA-Z0-9.-]/_/g' | tr '[:upper:]' '[:lower:]')
-        fi
-        ;;
-    *) MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-4bit" ; MODEL_LABEL="llama3.1-8b-4bit" ;;
-esac
-
-# Set model label for filename if not already set
-if [ -z "${MODEL_LABEL:-}" ]; then
-    MODEL_LABEL=$(echo "$MODEL" | sed 's/mlx-community\///' | sed 's/[^a-zA-Z0-9.-]/_/g' | tr '[:upper:]' '[:lower:]')
+# Select model via flag (or use default)
+if [ -n "$MODEL_FLAG" ]; then
+    if [[ "$MODEL_FLAG" == */* ]]; then
+        MODEL="$MODEL_FLAG"
+        # Canonical sanitizer
+        MODEL_LABEL=$(echo "$MODEL" | sed 's/mlx-community\///' | sed 's/[^a-zA-Z0-9.-]/_/g' | tr '[:upper:]' '[:lower:]')
+    else
+        case "$MODEL_FLAG" in
+            llama3.2-1b-4bit) MODEL="mlx-community/Llama-3.2-1B-Instruct-4bit"       ; MODEL_LABEL="llama3.2-1b-4bit" ;;
+            llama3.2-3b-4bit) MODEL="mlx-community/Llama-3.2-3B-Instruct-4bit"       ; MODEL_LABEL="llama3.2-3b-4bit" ;;
+            llama3.1-8b-4bit) MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"  ; MODEL_LABEL="llama3.1-8b-4bit" ;;
+            llama3.1-8b-8bit) MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-8bit"  ; MODEL_LABEL="llama3.1-8b-8bit" ;;
+            *)
+                echo "Error: Unknown cleanup model '$MODEL_FLAG'. Valid labels: llama3.2-1b-4bit llama3.2-3b-4bit llama3.1-8b-4bit llama3.1-8b-8bit" >&2
+                exit 1
+                ;;
+        esac
+    fi
+else
+    # Default: llama3.1-8b-4bit (README-recommended)
+    MODEL="mlx-community/Meta-Llama-3.1-8B-Instruct-4bit"
+    MODEL_LABEL="llama3.1-8b-4bit"
 fi
 
 OUTPUT_FILE="${BASENAME}_cleaned_${MODEL_LABEL}.txt"
@@ -209,3 +217,4 @@ PYTHON_SCRIPT
 echo ""
 echo "Done!"
 echo "Cleaned transcript: $OUTPUT_FILE"
+echo "OUTPUT_FILE=$OUTPUT_FILE"
