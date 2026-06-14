@@ -54,4 +54,27 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 ## Traceability
 
-<!-- Filled by roadmap: maps each REQ-ID to the phase that delivers it. -->
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DL-01 | Phase 1 | Pending |
+| CLI-01 | Phase 1 | Pending |
+| CLI-02 | Phase 1 | Pending |
+| CLI-03 | Phase 1 | Pending |
+| ROB-01 | Phase 1 | Pending |
+| TR-01 | Phase 1 | Pending |
+| TR-02 | Phase 1 | Pending |
+| TR-03 | Phase 1 | Pending |
+| CL-01 | Phase 1 | Pending |
+| CL-02 | Phase 1 | Pending |
+| CL-03 | Phase 1 | Pending |
+| SUM-01 | Phase 1 | Pending |
+| SUM-02 | Phase 1 | Pending |
+| SUM-03 | Phase 1 | Pending |
+| DL-02 | Phase 2 | Pending |
+| DL-03 | Phase 2 | Pending |
+| DL-04 | Phase 2 | Pending |
+| OUT-01 | Phase 2 | Pending |
+| OUT-02 | Phase 2 | Pending |
+| OUT-03 | Phase 2 | Pending |
+| ROB-02 | Phase 2 | Pending |
+| ROB-03 | Phase 2 | Pending |
