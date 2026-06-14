@@ -10,6 +10,17 @@ It is for the project owner (and anyone on Apple Silicon) who today runs the REA
 
 One command takes a YouTube URL to a finished markdown file (summary + full transcript) reliably and unattended — reusing the existing MLX scripts rather than reinventing them.
 
+## Current Milestone: v2.0 Model Benchmarking & Auto-Selection
+
+**Goal:** Discover the latest MLX-community models for every pipeline stage, benchmark them on this hardware with real outputs, and let the user pick winners that the pipeline then uses as defaults.
+
+**Target features:**
+- Refreshed candidate models for all three stages (transcription/Whisper, cleanup LLM, summarization LLM) — current best-in-class MLX options beyond today's `small`/`turbo`/Llama-3.x/Qwen2.5.
+- A Claude skill that researches and vets current best MLX-community models per stage and bakes a vetted candidate list into config; the benchmark script auto-launches `claude` to run it.
+- A `--benchmark` mode in `transcribrr.sh` that runs each candidate model through each stage on a sample, capturing real results: speed (RTF / tok-s), memory-fit check against 64GB, and actual output samples.
+- A comparison report showing real per-model/per-stage results; the user picks the winner per stage.
+- A settings file that records the chosen winners and is read by the normal pipeline run to select default models automatically.
+
 ## Requirements
 
 ### Validated
@@ -35,7 +46,7 @@ One command takes a YouTube URL to a finished markdown file (summary + full tran
 
 <!-- Next milestone. Hypotheses until shipped and validated. -->
 
-- [ ] (none yet — define with `/gsd-new-milestone`)
+- [ ] (v2.0 requirements being defined — see REQUIREMENTS.md)
 
 ### Out of Scope
 
@@ -94,4 +105,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-14 after v1.0 milestone*
+*Last updated: 2026-06-14 — started v2.0 milestone (Model Benchmarking & Auto-Selection)*
