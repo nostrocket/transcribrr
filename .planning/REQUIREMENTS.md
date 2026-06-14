@@ -5,7 +5,7 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 ## v1 Requirements
 
 ### Download (DL)
-- [ ] **DL-01**: User can run one command with a YouTube URL to start the full pipeline
+- [x] **DL-01**: User can run one command with a YouTube URL to start the full pipeline
 - [ ] **DL-02**: Script downloads the video/audio from the URL using `yt-dlp`
 - [ ] **DL-03**: Script exports audio to MP3 (via `yt-dlp -x --audio-format mp3` or `ffmpeg`)
 - [ ] **DL-04**: Script captures video metadata (title, channel, URL, duration, upload date) for the output header
@@ -13,17 +13,17 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 ### Transcribe (TR)
 - [ ] **TR-01**: Script transcribes the MP3 by invoking `transcribe.sh` non-interactively
 - [ ] **TR-02**: Whisper model size is selectable via flag, defaulting to the README-recommended model
-- [ ] **TR-03**: Script locates the transcript output file (`*_transcript_*.txt`) to feed the next stage
+- [x] **TR-03**: Script locates the transcript output file (`*_transcript_*.txt`) to feed the next stage
 
 ### Cleanup (CL)
 - [ ] **CL-01**: Script cleans the raw transcript by invoking `cleanup-transcript.sh` non-interactively
 - [ ] **CL-02**: Cleanup model is selectable via flag with a sensible default
-- [ ] **CL-03**: Cleanup stage can be disabled via flag (e.g. `--no-cleanup`)
+- [x] **CL-03**: Cleanup stage can be disabled via flag (e.g. `--no-cleanup`)
 
 ### Summarize (SUM)
 - [ ] **SUM-01**: Script summarizes the cleaned transcript by invoking `summarize-transcript.sh` non-interactively
 - [ ] **SUM-02**: Summary model and style are selectable via flags with sensible defaults
-- [ ] **SUM-03**: Script locates the summary output (`*_summary_*.md`) to assemble the final file
+- [x] **SUM-03**: Script locates the summary output (`*_summary_*.md`) to assemble the final file
 
 ### Output (OUT)
 - [ ] **OUT-01**: Script writes ONE markdown file containing, in order: rich header, summary, full transcript
@@ -32,11 +32,11 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 ### CLI & Unattended (CLI)
 - [ ] **CLI-01**: Script runs fully unattended when flags are supplied (no interactive prompts block it)
-- [ ] **CLI-02**: Script prints usage/help describing the URL argument and all flags
-- [ ] **CLI-03**: Script reports clear progress per stage (download → mp3 → transcribe → cleanup → summarize → assemble)
+- [x] **CLI-02**: Script prints usage/help describing the URL argument and all flags
+- [x] **CLI-03**: Script reports clear progress per stage (download → mp3 → transcribe → cleanup → summarize → assemble)
 
 ### Robustness (ROB)
-- [ ] **ROB-01**: Script checks for required dependencies (`yt-dlp`, `ffmpeg`, existing scripts) and fails with a clear message if missing
+- [x] **ROB-01**: Script checks for required dependencies (`yt-dlp`, `ffmpeg`, existing scripts) and fails with a clear message if missing
 - [ ] **ROB-02**: Script fails fast with an actionable message if any stage errors, naming the failing stage
 - [ ] **ROB-03**: Intermediate artifacts are retained (or cleaned up) predictably; the final markdown is only written on full success
 
@@ -56,20 +56,20 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DL-01 | Phase 1 | Pending |
+| DL-01 | Phase 1 | Complete |
 | CLI-01 | Phase 1 | Pending |
-| CLI-02 | Phase 1 | Pending |
-| CLI-03 | Phase 1 | Pending |
-| ROB-01 | Phase 1 | Pending |
+| CLI-02 | Phase 1 | Complete |
+| CLI-03 | Phase 1 | Complete |
+| ROB-01 | Phase 1 | Complete |
 | TR-01 | Phase 1 | Pending |
 | TR-02 | Phase 1 | Pending |
-| TR-03 | Phase 1 | Pending |
+| TR-03 | Phase 1 | Complete |
 | CL-01 | Phase 1 | Pending |
 | CL-02 | Phase 1 | Pending |
-| CL-03 | Phase 1 | Pending |
+| CL-03 | Phase 1 | Complete |
 | SUM-01 | Phase 1 | Pending |
 | SUM-02 | Phase 1 | Pending |
-| SUM-03 | Phase 1 | Pending |
+| SUM-03 | Phase 1 | Complete |
 | DL-02 | Phase 2 | Pending |
 | DL-03 | Phase 2 | Pending |
 | DL-04 | Phase 2 | Pending |

@@ -13,7 +13,7 @@ This milestone delivers a single bash script that takes a YouTube URL all the wa
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Scriptable Pipeline Foundation** - Drive the existing MLX scripts unattended via flags, with dependency checks, help, and per-stage progress
+- [x] **Phase 1: Scriptable Pipeline Foundation** - Drive the existing MLX scripts unattended via flags, with dependency checks, help, and per-stage progress (completed 2026-06-14)
 - [ ] **Phase 2: End-to-End YouTube-to-Markdown Delivery** - Download + MP3 + metadata, then assemble one robust markdown file from a single command
 
 ## Phase Details
@@ -40,7 +40,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-02-PLAN.md — Create transcribrr.sh orchestrator (preflight, stage chaining, --no-cleanup, help, progress) + SKELETON.md
+- [x] 01-02-PLAN.md — Create transcribrr.sh orchestrator (preflight, stage chaining, --no-cleanup, help, progress) + SKELETON.md
 
 ### Phase 2: End-to-End YouTube-to-Markdown Delivery
 
@@ -64,5 +64,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scriptable Pipeline Foundation | 1/2 | In Progress|  |
+| 1. Scriptable Pipeline Foundation | 2/2 | Complete   | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | 0/TBD | Not started | - |
