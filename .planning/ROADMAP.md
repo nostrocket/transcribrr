@@ -59,7 +59,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — URL auto-detection + conditional yt-dlp preflight + playlist rejection + metadata capture + MP3 download feeding the existing pipeline (DL-02/03/04, ROB-02)
+- [x] 02-01-PLAN.md — URL auto-detection + conditional yt-dlp preflight + playlist rejection + metadata capture + MP3 download feeding the existing pipeline (DL-02/03/04, ROB-02)
 
 **Wave 2** *(blocked on Wave 1 completion — same file, sequential)*
 
@@ -73,4 +73,4 @@ Phases execute in numeric order: 1 → 2
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scriptable Pipeline Foundation | 2/2 | Complete   | 2026-06-14 |
-| 2. End-to-End YouTube-to-Markdown Delivery | 0/2 | Not started | - |
+| 2. End-to-End YouTube-to-Markdown Delivery | 1/2 | In progress | - |

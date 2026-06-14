@@ -6,9 +6,9 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 ### Download (DL)
 - [x] **DL-01**: User can run one command with a YouTube URL to start the full pipeline
-- [ ] **DL-02**: Script downloads the video/audio from the URL using `yt-dlp`
-- [ ] **DL-03**: Script exports audio to MP3 (via `yt-dlp -x --audio-format mp3` or `ffmpeg`)
-- [ ] **DL-04**: Script captures video metadata (title, channel, URL, duration, upload date) for the output header
+- [x] **DL-02**: Script downloads the video/audio from the URL using `yt-dlp`
+- [x] **DL-03**: Script exports audio to MP3 (via `yt-dlp -x --audio-format mp3` or `ffmpeg`)
+- [x] **DL-04**: Script captures video metadata (title, channel, URL, duration, upload date) for the output header
 
 ### Transcribe (TR)
 - [ ] **TR-01**: Script transcribes the MP3 by invoking `transcribe.sh` non-interactively
@@ -70,9 +70,9 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 | SUM-01 | Phase 1 | Pending |
 | SUM-02 | Phase 1 | Pending |
 | SUM-03 | Phase 1 | Complete |
-| DL-02 | Phase 2 | Pending |
-| DL-03 | Phase 2 | Pending |
-| DL-04 | Phase 2 | Pending |
+| DL-02 | Phase 2 | Complete |
+| DL-03 | Phase 2 | Complete |
+| DL-04 | Phase 2 | Complete |
 | OUT-01 | Phase 2 | Pending |
 | OUT-02 | Phase 2 | Pending |
 | OUT-03 | Phase 2 | Pending |
