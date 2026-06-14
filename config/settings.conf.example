@@ -1,0 +1,11 @@
+# config/settings.conf.example — copy to config/settings.conf and edit
+# This file is committed. config/settings.conf is gitignored (per-user).
+#
+# Model selection precedence: CLI flag > this file > built-in default
+# Run `transcribrr.sh --benchmark` to populate with your benchmark winners.
+#
+# Values: friendly labels (e.g. turbo, llama3.1-8b-4bit) or raw HF IDs (containing /)
+# Supported keys for this phase only:
+WHISPER_MODEL_DEFAULT=turbo
+CLEANUP_MODEL_DEFAULT=llama3.1-8b-4bit
+SUMMARY_MODEL_DEFAULT=Qwen2.5-32B-4bit
