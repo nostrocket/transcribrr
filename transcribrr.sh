@@ -429,6 +429,15 @@ _VID_UPLOAD_DATE="${VIDEO_UPLOAD_DATE:-$_VID_DATE}"
 
 # Final markdown path: SAFE_TITLE is set by Plan 01 on both URL and local paths.
 FINAL_MD_PATH="$(pwd)/${SAFE_TITLE}.md"
+# Refuse to clobber an existing result (WR-05): two videos whose titles sanitize
+# to the same SAFE_TITLE — or re-processing the same local file — would otherwise
+# silently overwrite a prior unattended run with no warning. Fail loudly instead
+# so no data is lost (stays within the predictable-path decision in CONTEXT.md).
+if [ -e "$FINAL_MD_PATH" ]; then
+    echo "Error: $FINAL_MD_PATH already exists; refusing to overwrite." >&2
+    echo "  Move or rename the existing file, then re-run." >&2
+    exit 1
+fi
 TEMP_MD=$(mktemp)
 # EXIT trap removes the temp file on premature exit; cleared after successful mv (ROB-03).
 trap 'rm -f "$TEMP_MD"' EXIT
