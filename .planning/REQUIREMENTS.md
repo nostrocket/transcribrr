@@ -13,20 +13,20 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 ### Transcribe (TR)
 
-- [ ] **TR-01**: Script transcribes the MP3 by invoking `transcribe.sh` non-interactively
-- [ ] **TR-02**: Whisper model size is selectable via flag, defaulting to the README-recommended model
+- [x] **TR-01**: Script transcribes the MP3 by invoking `transcribe.sh` non-interactively
+- [x] **TR-02**: Whisper model size is selectable via flag, defaulting to the README-recommended model
 - [x] **TR-03**: Script locates the transcript output file (`*_transcript_*.txt`) to feed the next stage
 
 ### Cleanup (CL)
 
-- [ ] **CL-01**: Script cleans the raw transcript by invoking `cleanup-transcript.sh` non-interactively
-- [ ] **CL-02**: Cleanup model is selectable via flag with a sensible default
+- [x] **CL-01**: Script cleans the raw transcript by invoking `cleanup-transcript.sh` non-interactively
+- [x] **CL-02**: Cleanup model is selectable via flag with a sensible default
 - [x] **CL-03**: Cleanup stage can be disabled via flag (e.g. `--no-cleanup`)
 
 ### Summarize (SUM)
 
-- [ ] **SUM-01**: Script summarizes the cleaned transcript by invoking `summarize-transcript.sh` non-interactively
-- [ ] **SUM-02**: Summary model and style are selectable via flags with sensible defaults
+- [x] **SUM-01**: Script summarizes the cleaned transcript by invoking `summarize-transcript.sh` non-interactively
+- [x] **SUM-02**: Summary model and style are selectable via flags with sensible defaults
 - [x] **SUM-03**: Script locates the summary output (`*_summary_*.md`) to assemble the final file
 
 ### Output (OUT)
@@ -37,7 +37,7 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 
 ### CLI & Unattended (CLI)
 
-- [ ] **CLI-01**: Script runs fully unattended when flags are supplied (no interactive prompts block it)
+- [x] **CLI-01**: Script runs fully unattended when flags are supplied (no interactive prompts block it)
 - [x] **CLI-02**: Script prints usage/help describing the URL argument and all flags
 - [x] **CLI-03**: Script reports clear progress per stage (download → mp3 → transcribe → cleanup → summarize → assemble)
 
@@ -64,18 +64,18 @@ Single bash script that takes a YouTube URL through the full transcribrr pipelin
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DL-01 | Phase 1 | Complete |
-| CLI-01 | Phase 1 | Pending |
+| CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
 | CLI-03 | Phase 1 | Complete |
 | ROB-01 | Phase 1 | Complete |
-| TR-01 | Phase 1 | Pending |
-| TR-02 | Phase 1 | Pending |
+| TR-01 | Phase 1 | Complete |
+| TR-02 | Phase 1 | Complete |
 | TR-03 | Phase 1 | Complete |
-| CL-01 | Phase 1 | Pending |
-| CL-02 | Phase 1 | Pending |
+| CL-01 | Phase 1 | Complete |
+| CL-02 | Phase 1 | Complete |
 | CL-03 | Phase 1 | Complete |
-| SUM-01 | Phase 1 | Pending |
-| SUM-02 | Phase 1 | Pending |
+| SUM-01 | Phase 1 | Complete |
+| SUM-02 | Phase 1 | Complete |
 | SUM-03 | Phase 1 | Complete |
 | DL-02 | Phase 2 | Complete |
 | DL-03 | Phase 2 | Complete |
