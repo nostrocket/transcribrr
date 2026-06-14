@@ -14,6 +14,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WHISPER_MODEL="small"
 CLEANUP_MODEL="llama3.1-8b-4bit"
 SUMMARY_MODEL="Qwen2.5-32B-4bit"
+WHISPER_MODEL_EXPLICIT=false
+CLEANUP_MODEL_EXPLICIT=false
+SUMMARY_MODEL_EXPLICIT=false
+WHISPER_MODEL_SOURCE="built-in"
+CLEANUP_MODEL_SOURCE="built-in"
+SUMMARY_MODEL_SOURCE="built-in"
 SUMMARY_STYLE="blog"
 NO_CLEANUP=false
 NO_INSTALL=false
@@ -98,14 +104,20 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --whisper-model)
             WHISPER_MODEL="$2"
+            WHISPER_MODEL_EXPLICIT=true
+            WHISPER_MODEL_SOURCE="flag"
             shift 2
             ;;
         --cleanup-model)
             CLEANUP_MODEL="$2"
+            CLEANUP_MODEL_EXPLICIT=true
+            CLEANUP_MODEL_SOURCE="flag"
             shift 2
             ;;
         --summary-model)
             SUMMARY_MODEL="$2"
+            SUMMARY_MODEL_EXPLICIT=true
+            SUMMARY_MODEL_SOURCE="flag"
             shift 2
             ;;
         --summary-style)
@@ -135,6 +147,47 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# ── settings.conf — read model defaults (flag > settings.conf > built-in) ────
+# D-07/D-08: read once, after flag parsing, before preflight.
+# Parse-not-source: grep extracts the value as a literal string; no eval.
+
+SETTINGS_FILE="$SCRIPT_DIR/config/settings.conf"
+if [ -f "$SETTINGS_FILE" ]; then
+    _read_setting() {
+        # Anchored grep prevents prefix collisions; tail -1 = last-writer-wins;
+        # cut -d= -f2- preserves values that contain '=' characters.
+        grep "^${1}=" "$SETTINGS_FILE" 2>/dev/null | tail -1 | cut -d= -f2-
+    }
+    if [ "$WHISPER_MODEL_EXPLICIT" = false ]; then
+        _val=$(_read_setting WHISPER_MODEL_DEFAULT)
+        if [ -n "$_val" ]; then
+            WHISPER_MODEL="$_val"
+            WHISPER_MODEL_SOURCE="settings.conf"
+        fi
+    fi
+    if [ "$CLEANUP_MODEL_EXPLICIT" = false ]; then
+        _val=$(_read_setting CLEANUP_MODEL_DEFAULT)
+        if [ -n "$_val" ]; then
+            CLEANUP_MODEL="$_val"
+            CLEANUP_MODEL_SOURCE="settings.conf"
+        fi
+    fi
+    if [ "$SUMMARY_MODEL_EXPLICIT" = false ]; then
+        _val=$(_read_setting SUMMARY_MODEL_DEFAULT)
+        if [ -n "$_val" ]; then
+            SUMMARY_MODEL="$_val"
+            SUMMARY_MODEL_SOURCE="settings.conf"
+        fi
+    fi
+fi
+
+# ── Provenance summary — print model + source before pipeline starts (D-09) ──
+
+echo "Models:"
+printf "  whisper  = %-24s (%s)\n" "$WHISPER_MODEL" "$WHISPER_MODEL_SOURCE"
+printf "  cleanup  = %-24s (%s)\n" "$CLEANUP_MODEL" "$CLEANUP_MODEL_SOURCE"
+printf "  summary  = %-24s (%s)\n" "$SUMMARY_MODEL" "$SUMMARY_MODEL_SOURCE"
 
 # ── URL vs local input detection (D-01) ──────────────────────────────────────
 # Must run before preflight_check so yt-dlp check is URL-conditional.
