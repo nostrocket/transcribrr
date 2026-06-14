@@ -76,7 +76,13 @@ None yet.
 
 ### Blockers/Concerns
 
-- The three existing scripts (`transcribe.sh`, `cleanup-transcript.sh`, `summarize-transcript.sh`) use interactive `read -p` model/style prompts. Phase 1 must drive them non-interactively (stdin piping, flags, or env hooks), which may require small non-interactive hooks added to those scripts. Output filenames are model-label-derived, so non-interactive model selection and output location are coupled.
+- (resolved in v1.0) The three sub-scripts are now flag-driven and non-interactive.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260614-uhd | Auto-install missing deps (yt-dlp, ffmpeg) via Homebrew in preflight, with --no-install opt-out | 2026-06-14 | d8701a5 | [260614-uhd-auto-install-deps](./quick/260614-uhd-auto-install-deps/) |
 
 ## Deferred Items
 
