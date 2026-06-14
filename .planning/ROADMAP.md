@@ -40,7 +40,9 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   3. Passing `--whisper-model small` on the command line overrides a `settings.conf` that specifies a different model (flag always wins)
   4. A `settings.conf` referencing a non-existent or unloadable model produces a clear, actionable error message directing the user to `--benchmark`, not a cryptic load failure
   5. Any HF model ID from `candidates.conf` is accepted by the existing stage scripts via the `--model` flag without modifying those scripts
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 03-01-PLAN.md — config/candidates.conf vetted list, settings.conf.example, .gitignore (MODEL-01, MODEL-02)
+- [ ] 03-02-PLAN.md — transcribrr.sh three-tier precedence, settings.conf read, CFG-03 error, MODEL-03 confirm (MODEL-03, CFG-01/02/03)
 
 ### Phase 4: Benchmark Engine Core
 **Goal**: Running `transcribrr.sh --benchmark` executes a complete sweep of all hardware-fitting candidates through their real pipeline stages with warm-up, measured timing, peak memory, and live progress
@@ -88,7 +90,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 |-------|-----------|----------------|--------|-----------|
 | 1. Scriptable Pipeline Foundation | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
-| 3. Candidate Config & Pipeline Settings Integration | v2.0 | 0/TBD | Not started | - |
+| 3. Candidate Config & Pipeline Settings Integration | v2.0 | 0/2 | Planned | - |
 | 4. Benchmark Engine Core | v2.0 | 0/TBD | Not started | - |
 | 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
