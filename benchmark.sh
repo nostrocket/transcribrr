@@ -590,43 +590,376 @@ run_candidate() {
     sleep "$BENCH_COOLDOWN_SECS"
 }
 
-# TODO: REMOVE AFTER 04-04 — temporary skeleton smoke check; 04-04 Task 1 strips this block
-# This block verifies the skeleton is runnable and the parser returns correct candidate counts.
+# ── Per-run results directory (D-15, one dir per sweep invocation) ────────────
 
-CURRENT_STAGE="smoke-check"
+CURRENT_STAGE="run-dir-setup"
 
-ensure_dep ffmpeg ffmpeg
-ensure_dep yt-dlp yt-dlp
+RUN_TS=$(date '+%Y%m%dT%H%M%S')
+RUN_DIR="$RESULTS_DIR/benchmark_${RUN_TS}"
+mkdir -p "$RUN_DIR/whisper" "$RUN_DIR/cleanup" "$RUN_DIR/summarize"
+echo "Results directory: $RUN_DIR"
 
-stage_banner "Benchmark skeleton smoke check"
+# ── select_best: interactive per-stage candidate selection (D-01, T-04-13) ────
+#
+# Usage: select_best <stage> <list_file>
+#   stage:     whisper | cleanup | summarize (used for display only)
+#   list_file: flat temp file, one "label|output_file" line per successful candidate
+#
+# Prints the selected output_file to stdout.
+# Exits non-zero if zero successful candidates (chain cannot continue).
+#
+# Selection validation (T-04-13 mitigations):
+#   - Strict integer-format regex: grep -qE '^[0-9]+$' (no minus, no spaces, digits only)
+#   - Bounds check: selection -ge 1 AND selection -le N
+#   - Invalid input: re-prompt (loop) — never silently pick or crash
+#
+# Bash 3.2 compatible: per-stage mapping uses a flat temp file (no associative arrays).
 
-echo "Candidates.conf: $CANDIDATES_CONF"
-echo ""
+select_best() {
+    local stage="$1"
+    local list_file="$2"
 
-WHISPER_COUNT=0
-while IFS='|' read -r model_id label size_gb; do
-    WHISPER_COUNT=$((WHISPER_COUNT + 1))
-    printf "  whisper [%d] id=%s  label=%s  size_gb=%s\n" \
-        "$WHISPER_COUNT" "$model_id" "$label" "$size_gb"
+    # Count successful candidates
+    local count
+    count=$(wc -l < "$list_file" | tr -d ' ')
+
+    if [ "$count" -eq 0 ]; then
+        echo "" >&2
+        echo "Error: No successful candidates in stage '$stage' — cannot continue." >&2
+        echo "  All candidates were either skipped (fit gate) or failed to run." >&2
+        exit 1
+    fi
+
+    echo ""
+    echo "  Stage '$stage' complete. ${count} candidate(s) available. Select the best output:"
+
+    # Display numbered menu with metrics + excerpt (BENCH-05 — real output shown to human)
+    local i=0
+    while IFS='|' read -r cand_label cand_output cand_speed cand_peak; do
+        i=$((i + 1))
+        printf "\n  [%d] %s\n" "$i" "$cand_label"
+        printf "      Speed: %s   Peak memory: %s GB\n" "$cand_speed" "$cand_peak"
+        echo "      --- excerpt (first 10 lines) ---"
+        if [ -f "$cand_output" ]; then
+            head -10 "$cand_output" | sed 's/^/      /'
+        else
+            echo "      (output file not found: $cand_output)"
+        fi
+    done < "$list_file"
+
+    echo ""
+
+    # Validation loop — re-prompt on invalid input (T-04-13)
+    local selection
+    while true; do
+        printf "  Enter number (1-%d): " "$count"
+        read -r selection
+
+        # Format check: must be one or more digits, nothing else
+        if ! echo "$selection" | grep -qE '^[0-9]+$'; then
+            echo "  Invalid input: '$selection' is not an integer. Please enter a number between 1 and ${count}." >&2
+            continue
+        fi
+
+        # Bounds check: [1..count] — reject if below 1 or above count
+        if [ "$selection" -lt 1 ] || [ "$selection" -gt "$count" ]; then
+            echo "  Out of range: '$selection' must be between 1 and ${count}." >&2
+            continue
+        fi
+
+        break
+    done
+
+    # Extract selected output_file (field 2) from the Nth line of the list file
+    sed -n "${selection}p" "$list_file" | cut -d'|' -f2
+}
+
+# ── fit_check: classify a single candidate as fit or skip (HW-02/03, D-07) ──
+# Usage: fit_check <size_gb>
+# Prints "fit" or "skip".
+
+fit_check() {
+    local size_gb="$1"
+    awk "BEGIN {
+        estimate = $size_gb + $BENCH_OVERHEAD_BUFFER_GB
+        if (estimate <= $USABLE_GB) print \"fit\"
+        else print \"skip\"
+    }"
+}
+
+# ── Staged sweep: whisper → cleanup → summarize (D-01, BENCH-01, D-02) ───────
+#
+# For each stage, in order:
+#   1. Print stage banner (BENCH-08)
+#   2. Iterate ALL fitting candidates (D-02 — no cap)
+#   3. fit_check each: skip → write_skip_json + SKIP log; fit → run_candidate
+#   4. After stage completes, call select_best to pick the best output
+#   5. Carry selected output forward as input to the next stage (D-01 chaining)
+#
+# Stage temp files (bash 3.2 compatible — flat files mapping, no associative arrays):
+#   label|output_file|speed_display|peak_gb  (one line per successful candidate)
+
+CURRENT_STAGE="staged-sweep"
+
+# Initialise chaining variables (populated by select_best after each stage)
+SELECTED_TRANSCRIPT=""
+SELECTED_CLEANED=""
+SELECTED_SUMMARY=""
+
+# ────────────────────────────────────────────────────────────────────────────
+# STAGE 1: whisper
+# ────────────────────────────────────────────────────────────────────────────
+
+CURRENT_STAGE="sweep-whisper"
+
+WHISPER_RESULTS_LIST=$(mktemp /tmp/benchmark_whisper_list_XXXXXX)
+
+# Count fitting whisper candidates for the banner
+WHISPER_CANDIDATE_COUNT=0
+while IFS='|' read -r _id _label _size; do
+    FIT_TMP=$(fit_check "$_size")
+    if [ "$FIT_TMP" = "fit" ]; then
+        WHISPER_CANDIDATE_COUNT=$((WHISPER_CANDIDATE_COUNT + 1))
+    fi
 done < <(parse_candidates "whisper" "$CANDIDATES_CONF")
 
-CLEANUP_COUNT=0
+stage_banner "Benchmark: whisper (1 of 3) — ${WHISPER_CANDIDATE_COUNT} fitting candidates"
+
 while IFS='|' read -r model_id label size_gb; do
-    CLEANUP_COUNT=$((CLEANUP_COUNT + 1))
-    printf "  cleanup [%d] id=%s  label=%s  size_gb=%s\n" \
-        "$CLEANUP_COUNT" "$model_id" "$label" "$size_gb"
+    CANDIDATE_FIT=$(fit_check "$size_gb")
+
+    if [ "$CANDIDATE_FIT" = "skip" ]; then
+        ESTIMATE=$(awk "BEGIN{printf \"%.1f\", $size_gb + $BENCH_OVERHEAD_BUFFER_GB}")
+        SKIP_REASON="${size_gb}(size) + ${BENCH_OVERHEAD_BUFFER_GB}(overhead) = ${ESTIMATE} > ${USABLE_GB}(usable)"
+        echo "  SKIP $label: $SKIP_REASON"
+        write_skip_json "$model_id" "$label" "whisper" "$SKIP_REASON" \
+            "$RUN_DIR/whisper/${label}_result.json"
+    else
+        run_candidate "whisper" "$model_id" "$label" \
+            "$SAMPLE_MP3" \
+            "$RUN_DIR/whisper/${label}_result.json" \
+            "$RUN_DIR/whisper" \
+            ""
+
+        # Record successful candidate in list file for select_best
+        # Extract output_file and metrics from the written JSON via Python
+        if [ -f "$RUN_DIR/whisper/${label}_result.json" ]; then
+            CAND_ERROR=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/whisper/${label}_result.json') as f:
+    d = json.load(f)
+print(d.get('error') or '')
+" 2>/dev/null || echo "read_error")
+            if [ -z "$CAND_ERROR" ]; then
+                CAND_OUTPUT=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/whisper/${label}_result.json') as f:
+    d = json.load(f)
+print(d.get('output_file',''))
+" 2>/dev/null || echo "")
+                CAND_SPEED=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/whisper/${label}_result.json') as f:
+    d = json.load(f)
+print('RTF=' + str(d.get('speed_value','')))
+" 2>/dev/null || echo "RTF=?")
+                CAND_PEAK=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/whisper/${label}_result.json') as f:
+    d = json.load(f)
+print(str(d.get('peak_mem_gb','')))
+" 2>/dev/null || echo "?")
+                if [ -n "$CAND_OUTPUT" ] && [ -f "$CAND_OUTPUT" ]; then
+                    printf '%s|%s|%s|%s\n' "$label" "$CAND_OUTPUT" "$CAND_SPEED" "$CAND_PEAK" \
+                        >> "$WHISPER_RESULTS_LIST"
+                fi
+            fi
+        fi
+    fi
+done < <(parse_candidates "whisper" "$CANDIDATES_CONF")
+
+SELECTED_TRANSCRIPT=$(select_best "whisper" "$WHISPER_RESULTS_LIST")
+rm -f "$WHISPER_RESULTS_LIST"
+
+echo ""
+echo "  Selected transcript: $SELECTED_TRANSCRIPT"
+
+# ────────────────────────────────────────────────────────────────────────────
+# STAGE 2: cleanup (input = SELECTED_TRANSCRIPT)
+# ────────────────────────────────────────────────────────────────────────────
+
+CURRENT_STAGE="sweep-cleanup"
+
+CLEANUP_RESULTS_LIST=$(mktemp /tmp/benchmark_cleanup_list_XXXXXX)
+
+CLEANUP_CANDIDATE_COUNT=0
+while IFS='|' read -r _id _label _size; do
+    FIT_TMP=$(fit_check "$_size")
+    if [ "$FIT_TMP" = "fit" ]; then
+        CLEANUP_CANDIDATE_COUNT=$((CLEANUP_CANDIDATE_COUNT + 1))
+    fi
 done < <(parse_candidates "cleanup" "$CANDIDATES_CONF")
 
-SUMMARIZE_COUNT=0
+stage_banner "Benchmark: cleanup (2 of 3) — ${CLEANUP_CANDIDATE_COUNT} fitting candidates"
+
 while IFS='|' read -r model_id label size_gb; do
-    SUMMARIZE_COUNT=$((SUMMARIZE_COUNT + 1))
-    printf "  summarize [%d] id=%s  label=%s  size_gb=%s\n" \
-        "$SUMMARIZE_COUNT" "$model_id" "$label" "$size_gb"
-done < <(parse_candidates "summarize" "$CANDIDATES_CONF")
+    CANDIDATE_FIT=$(fit_check "$size_gb")
+
+    if [ "$CANDIDATE_FIT" = "skip" ]; then
+        ESTIMATE=$(awk "BEGIN{printf \"%.1f\", $size_gb + $BENCH_OVERHEAD_BUFFER_GB}")
+        SKIP_REASON="${size_gb}(size) + ${BENCH_OVERHEAD_BUFFER_GB}(overhead) = ${ESTIMATE} > ${USABLE_GB}(usable)"
+        echo "  SKIP $label: $SKIP_REASON"
+        write_skip_json "$model_id" "$label" "cleanup" "$SKIP_REASON" \
+            "$RUN_DIR/cleanup/${label}_result.json"
+    else
+        run_candidate "cleanup" "$model_id" "$label" \
+            "$SELECTED_TRANSCRIPT" \
+            "$RUN_DIR/cleanup/${label}_result.json" \
+            "$RUN_DIR/cleanup" \
+            ""
+
+        if [ -f "$RUN_DIR/cleanup/${label}_result.json" ]; then
+            CAND_ERROR=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/cleanup/${label}_result.json') as f:
+    d = json.load(f)
+print(d.get('error') or '')
+" 2>/dev/null || echo "read_error")
+            if [ -z "$CAND_ERROR" ]; then
+                CAND_OUTPUT=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/cleanup/${label}_result.json') as f:
+    d = json.load(f)
+print(d.get('output_file',''))
+" 2>/dev/null || echo "")
+                CAND_SPEED=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/cleanup/${label}_result.json') as f:
+    d = json.load(f)
+print(str(d.get('speed_value','')) + ' tok/s')
+" 2>/dev/null || echo "? tok/s")
+                CAND_PEAK=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/cleanup/${label}_result.json') as f:
+    d = json.load(f)
+print(str(d.get('peak_mem_gb','')))
+" 2>/dev/null || echo "?")
+                if [ -n "$CAND_OUTPUT" ] && [ -f "$CAND_OUTPUT" ]; then
+                    printf '%s|%s|%s|%s\n' "$label" "$CAND_OUTPUT" "$CAND_SPEED" "$CAND_PEAK" \
+                        >> "$CLEANUP_RESULTS_LIST"
+                fi
+            fi
+        fi
+    fi
+done < <(parse_candidates "cleanup" "$CANDIDATES_CONF")
+
+SELECTED_CLEANED=$(select_best "cleanup" "$CLEANUP_RESULTS_LIST")
+rm -f "$CLEANUP_RESULTS_LIST"
 
 echo ""
-printf "Detected candidates: whisper=%d  cleanup=%d  summarize=%d\n" \
-    "$WHISPER_COUNT" "$CLEANUP_COUNT" "$SUMMARIZE_COUNT"
+echo "  Selected cleaned transcript: $SELECTED_CLEANED"
+
+# ────────────────────────────────────────────────────────────────────────────
+# STAGE 3: summarize (input = SELECTED_CLEANED; extra_args = "--style blog")
+# ────────────────────────────────────────────────────────────────────────────
+
+CURRENT_STAGE="sweep-summarize"
+
+SUMMARIZE_RESULTS_LIST=$(mktemp /tmp/benchmark_summarize_list_XXXXXX)
+
+SUMMARIZE_CANDIDATE_COUNT=0
+while IFS='|' read -r _id _label _size; do
+    FIT_TMP=$(fit_check "$_size")
+    if [ "$FIT_TMP" = "fit" ]; then
+        SUMMARIZE_CANDIDATE_COUNT=$((SUMMARIZE_CANDIDATE_COUNT + 1))
+    fi
+done < <(parse_candidates "summarize" "$CANDIDATES_CONF")
+
+stage_banner "Benchmark: summarize (3 of 3) — ${SUMMARIZE_CANDIDATE_COUNT} fitting candidates"
+
+while IFS='|' read -r model_id label size_gb; do
+    CANDIDATE_FIT=$(fit_check "$size_gb")
+
+    if [ "$CANDIDATE_FIT" = "skip" ]; then
+        ESTIMATE=$(awk "BEGIN{printf \"%.1f\", $size_gb + $BENCH_OVERHEAD_BUFFER_GB}")
+        SKIP_REASON="${size_gb}(size) + ${BENCH_OVERHEAD_BUFFER_GB}(overhead) = ${ESTIMATE} > ${USABLE_GB}(usable)"
+        echo "  SKIP $label: $SKIP_REASON"
+        write_skip_json "$model_id" "$label" "summarize" "$SKIP_REASON" \
+            "$RUN_DIR/summarize/${label}_result.json"
+    else
+        # Pass --style blog via extra_args (D-01, plan 04-04 requirement)
+        run_candidate "summarize" "$model_id" "$label" \
+            "$SELECTED_CLEANED" \
+            "$RUN_DIR/summarize/${label}_result.json" \
+            "$RUN_DIR/summarize" \
+            "--style blog"
+
+        if [ -f "$RUN_DIR/summarize/${label}_result.json" ]; then
+            CAND_ERROR=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/summarize/${label}_result.json') as f:
+    d = json.load(f)
+print(d.get('error') or '')
+" 2>/dev/null || echo "read_error")
+            if [ -z "$CAND_ERROR" ]; then
+                CAND_OUTPUT=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/summarize/${label}_result.json') as f:
+    d = json.load(f)
+print(d.get('output_file',''))
+" 2>/dev/null || echo "")
+                CAND_SPEED=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/summarize/${label}_result.json') as f:
+    d = json.load(f)
+print(str(d.get('speed_value','')) + ' tok/s')
+" 2>/dev/null || echo "? tok/s")
+                CAND_PEAK=$("$PYTHON" -c "
+import json
+with open('$RUN_DIR/summarize/${label}_result.json') as f:
+    d = json.load(f)
+print(str(d.get('peak_mem_gb','')))
+" 2>/dev/null || echo "?")
+                if [ -n "$CAND_OUTPUT" ] && [ -f "$CAND_OUTPUT" ]; then
+                    printf '%s|%s|%s|%s\n' "$label" "$CAND_OUTPUT" "$CAND_SPEED" "$CAND_PEAK" \
+                        >> "$SUMMARIZE_RESULTS_LIST"
+                fi
+            fi
+        fi
+    fi
+done < <(parse_candidates "summarize" "$CANDIDATES_CONF")
+
+SELECTED_SUMMARY=$(select_best "summarize" "$SUMMARIZE_RESULTS_LIST")
+rm -f "$SUMMARIZE_RESULTS_LIST"
+
 echo ""
-echo "Skeleton OK. Implement staged sweep in plans 04-02 through 04-04."
-# ── END temporary smoke check block ──────────────────────────────────────────
+echo "  Selected summary: $SELECTED_SUMMARY"
+
+# ── sweep_meta.json — run-level metadata (D-15, Phase 5 contract) ─────────────
+# Written via "$PYTHON" json module for safe serialization (T-04-09).
+# Does NOT write config/settings.conf — that is Phase 5's responsibility (D-04).
+
+CURRENT_STAGE="sweep-meta"
+
+"$PYTHON" - << PYEOF
+import json
+data = {
+    "run_ts":              "$RUN_TS",
+    "total_ram_gb":        $TOTAL_GB,
+    "usable_gb":           $USABLE_GB,
+    "audio_duration_s":    $AUDIO_DURATION_S,
+    "sample_url":          "$BENCH_SAMPLE_URL",
+    "overhead_buffer_gb":  $BENCH_OVERHEAD_BUFFER_GB,
+    "cooldown_secs":       $BENCH_COOLDOWN_SECS,
+    "selected_transcript": "$SELECTED_TRANSCRIPT",
+    "selected_cleaned":    "$SELECTED_CLEANED",
+    "selected_summary":    "$SELECTED_SUMMARY",
+}
+with open("$RUN_DIR/sweep_meta.json", "w") as f:
+    json.dump(data, f, indent=2)
+print("sweep_meta.json written.")
+PYEOF
+
+echo ""
+echo "Benchmark sweep complete."
+echo "Phase 5 will read $RUN_DIR to write config/settings.conf"
