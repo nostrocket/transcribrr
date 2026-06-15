@@ -307,10 +307,288 @@ fi
 CURRENT_STAGE="audio-duration"
 
 ensure_dep ffmpeg ffmpeg
-DURATION_STR=$(ffmpeg -i "$SAMPLE_MP3" 2>&1 | grep "Duration" | awk '{print $2}' | tr -d ,)
+DURATION_STR=$(ffmpeg -i "$SAMPLE_MP3" 3>&1 1>/dev/null 2>&3 3>&- | grep "Duration" | awk '{print $2}' | tr -d ,)
 IFS=: read h m s <<< "$DURATION_STR"
 AUDIO_DURATION_S=$(echo "$h * 3600 + $m * 60 + $s" | LC_NUMERIC=C bc)
 echo "Audio duration: $DURATION_STR (${AUDIO_DURATION_S%.*} seconds)"
+
+# ── JSON result writers (D-15, T-04-09 — Python for safe escaping) ───────────
+# Three writers: write_success_json, write_error_json, write_skip_json.
+# ALL JSON is generated via "$PYTHON" json module — NEVER shell string concatenation.
+# Model output (transcript text, file paths) may contain quotes/newlines/backslashes.
+
+write_success_json() {
+    local model_id="$1"
+    local label="$2"
+    local stage="$3"
+    local speed_metric="$4"      # "rtf" or "tok_per_s"
+    local speed_value="$5"       # numeric (no quotes in JSON)
+    local peak_bytes="$6"        # numeric
+    local peak_gb="$7"           # numeric
+    local wall_time="$8"         # integer seconds
+    local audio_duration_sec="$9" # numeric or "None" (whisper only; others pass None)
+    local output_file="${10}"
+    local result_json_path="${11}"
+    local warmup_wall="${12}"     # integer seconds
+
+    "$PYTHON" - << PYEOF
+import json, datetime
+data = {
+    "format_version":      1,
+    "candidate_id":        "$model_id",
+    "label":               "$label",
+    "stage":               "$stage",
+    "run_ts":              datetime.datetime.now().isoformat(timespec='seconds'),
+    "fit_status":          "fit",
+    "error":               None,
+    "speed_metric":        "$speed_metric",
+    "speed_value":         $speed_value,
+    "peak_mem_bytes":      $peak_bytes,
+    "peak_mem_gb":         $peak_gb,
+    "wall_time_sec":       $wall_time,
+    "audio_duration_sec":  $audio_duration_sec,
+    "output_file":         "$output_file",
+    "warmup_wall_sec":     $warmup_wall,
+}
+with open("$result_json_path", "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+}
+
+write_error_json() {
+    local model_id="$1"
+    local label="$2"
+    local stage="$3"
+    local candidate_exit="$4"
+    local result_json_path="$5"
+
+    "$PYTHON" - << PYEOF
+import json, datetime
+data = {
+    "format_version":      1,
+    "candidate_id":        "$model_id",
+    "label":               "$label",
+    "stage":               "$stage",
+    "run_ts":              datetime.datetime.now().isoformat(timespec='seconds'),
+    "fit_status":          "fit",
+    "error":               "subprocess_nonzero",
+    "exit_code":           $candidate_exit,
+    "speed_metric":        None,
+    "speed_value":         None,
+    "peak_mem_bytes":      None,
+    "peak_mem_gb":         None,
+    "wall_time_sec":       None,
+    "audio_duration_sec":  None,
+    "output_file":         None,
+    "warmup_wall_sec":     None,
+}
+with open("$result_json_path", "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+}
+
+write_skip_json() {
+    local model_id="$1"
+    local label="$2"
+    local stage="$3"
+    local skip_reason="$4"
+    local result_json_path="$5"
+
+    "$PYTHON" - << PYEOF
+import json
+data = {
+    "format_version":  1,
+    "candidate_id":    "$model_id",
+    "label":           "$label",
+    "stage":           "$stage",
+    "fit_status":      "skip",
+    "skip_reason":     "$skip_reason",
+}
+with open("$result_json_path", "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+}
+
+# ── run_candidate: per-candidate execution engine (BENCH-02/03/04/05/08, D-10..D-16) ──
+#
+# Usage: run_candidate <stage> <model_id> <label> <input_file>
+#                       <result_json_path> <output_dir> [extra_args]
+#
+# stage:            whisper | cleanup | summarize
+# model_id:         HF model id passed to --model (Pitfall G: use id, not label)
+# label:            human-readable label used for display and result file naming
+# input_file:       audio file (whisper) or transcript file (cleanup/summarize)
+# result_json_path: path to write the per-candidate JSON result
+# output_dir:       directory where stage script writes its output (passed as OUTPUT_DIR=)
+# extra_args:       optional trailing args forwarded verbatim to both warm-up and
+#                   timed subprocesses (e.g. "--style blog" for summarize — plan 04-04)
+#
+# Architecture (locked by research):
+#   BENCH-03 / Pitfall C: warm-up IS a separate full subprocess invocation;
+#             timed pass IS a separate subprocess — MLX Metal memory not released in-process.
+#   D-10 / Pitfall A: /usr/bin/time -l + 2>"$TIME_OUT" — NEVER merge stderr to
+#             stdout (that corrupts the OUTPUT_FILE= grep with time metrics).
+#   D-16: set +e / set -e bracket + return (not exit) on nonzero → sweep continues.
+#   T-04-09: all JSON written via Python json module.
+#   T-04-10: TIME_OUT and STDOUT_TMP both via mktemp; rm -f on both paths.
+
+run_candidate() {
+    local stage="$1"
+    local model_id="$2"
+    local label="$3"
+    local input_file="$4"
+    local result_json_path="$5"
+    local output_dir="$6"
+    local extra_args="${7:-}"   # optional; word-split when expanded (intentional — $STAGE_EXTRA)
+
+    # Resolve stage script path (SCRIPT_DIR-relative — never bare ./script.sh)
+    local stage_script
+    case "$stage" in
+        whisper)   stage_script="$SCRIPT_DIR/transcribe.sh" ;;
+        cleanup)   stage_script="$SCRIPT_DIR/cleanup-transcript.sh" ;;
+        summarize) stage_script="$SCRIPT_DIR/summarize-transcript.sh" ;;
+        *)
+            echo "  ERROR: unknown stage '$stage'" >&2
+            return 1
+            ;;
+    esac
+
+    # STAGE_EXTRA: intentionally NOT double-quoted in subprocess calls below.
+    # An empty value contributes zero args; "--style blog" expands to two args.
+    # shellcheck disable=SC2206
+    local STAGE_EXTRA
+    STAGE_EXTRA=$extra_args
+
+    # ── Step 1: WARM-UP (BENCH-03, Pitfall C) ────────────────────────────────
+    # A SEPARATE full subprocess to populate the Metal kernel disk cache.
+    # Warm-up exit is tolerated — short input may error on some models; that is OK.
+
+    local warmup_input warmup_start warmup_end warmup_wall
+    warmup_input=""
+
+    if [ "$stage" = "whisper" ]; then
+        # Generate a 5-second sine wave for warm-up (populates Metal kernel cache)
+        warmup_input=$(mktemp /tmp/benchmark_warmup_XXXXXX.wav)
+        ffmpeg -f lavfi -i "sine=frequency=440:duration=5" -ar 16000 \
+               "$warmup_input" -y -loglevel quiet
+    else
+        # Cleanup/summarize: warm up on a tiny temp text file
+        warmup_input=$(mktemp /tmp/benchmark_warmup_XXXXXX.txt)
+        printf "This is a short warm-up text for the %s model.\n" "$stage" > "$warmup_input"
+    fi
+
+    warmup_start=$(date +%s)
+    set +e
+    "$stage_script" "$warmup_input" --model "$model_id" $STAGE_EXTRA \
+        >/dev/null 2>/dev/null
+    set -e
+    warmup_end=$(date +%s)
+    warmup_wall=$((warmup_end - warmup_start))
+    rm -f "$warmup_input"
+
+    # Brief cool-down after warm-up before timed pass
+    sleep 5
+
+    # ── Step 2: TIMED PASS (BENCH-02/04, D-10) ───────────────────────────────
+    # /usr/bin/time -l wraps the stage subprocess.
+    # TIME_OUT  — receives time metrics on stderr (2>"$TIME_OUT"; never merge stderr to stdout)
+    # STDOUT_TMP — receives full stage stdout (for tok/s grep)
+    # Both are mktemp'd (T-04-10); both are rm -f'd on success AND failure paths.
+
+    local TIME_OUT STDOUT_TMP
+    TIME_OUT=$(mktemp)
+    STDOUT_TMP=$(mktemp)
+
+    local t_start t_end wall_time candidate_exit STAGE_OUT
+    t_start=$(date +%s)
+
+    # Live progress (BENCH-08) — overwrite same terminal line
+    printf "  [%s]  %-35s  elapsed: 0s\r" "$stage" "$label"
+
+    set +e
+    STAGE_OUT=$( /usr/bin/time -l "$stage_script" "$input_file" \
+                   --model "$model_id" $STAGE_EXTRA \
+                   2>"$TIME_OUT" \
+                 | tee "$STDOUT_TMP" /dev/stderr \
+                 | grep "^OUTPUT_FILE=" || true )
+    candidate_exit=$?
+    set -e
+
+    t_end=$(date +%s)
+    wall_time=$((t_end - t_start))
+
+    # Final elapsed update after candidate completes
+    echo ""
+
+    # ── Step 3: FAILURE (D-16) — write error JSON, clean up, cool down, return ─
+    if [ "$candidate_exit" -ne 0 ]; then
+        printf "  %-35s  ERROR (exit %d)\n" "$label" "$candidate_exit"
+        mkdir -p "$(dirname "$result_json_path")"
+        write_error_json "$model_id" "$label" "$stage" "$candidate_exit" "$result_json_path"
+        rm -f "$TIME_OUT" "$STDOUT_TMP"
+        sleep "$BENCH_COOLDOWN_SECS"
+        return   # NEVER exit — sweep continues to next candidate (D-16)
+    fi
+
+    # ── Step 4: METRICS ───────────────────────────────────────────────────────
+
+    # Output file from OUTPUT_FILE= contract
+    local output_file
+    output_file="${STAGE_OUT#OUTPUT_FILE=}"
+
+    # Peak memory from /usr/bin/time -l temp file (bytes — verified)
+    local peak_bytes peak_gb
+    peak_bytes=$(grep "maximum resident set size" "$TIME_OUT" | awk '{print $1}')
+    peak_gb=$(echo "$peak_bytes" | awk '{printf "%.2f", $1/1024/1024/1024}')
+
+    # Speed metric (D-11): stage-specific
+    local speed_metric speed_value audio_duration_sec
+    audio_duration_sec="None"
+
+    case "$stage" in
+        whisper)
+            # RTF = wall_time / AUDIO_DURATION_S (awk — no (( )) float, bash 3.2)
+            speed_metric="rtf"
+            speed_value=$(awk "BEGIN{printf \"%.3f\", $wall_time / $AUDIO_DURATION_S}")
+            audio_duration_sec="$AUDIO_DURATION_S"
+            ;;
+        cleanup)
+            # tok/s derived: output word count * 1.3 / wall_time (cleanup has no self-report)
+            speed_metric="tok_per_s"
+            local word_count
+            word_count=$(wc -w < "$output_file" | tr -d ' ')
+            speed_value=$(awk "BEGIN{printf \"%.1f\", ($word_count * 1.3) / $wall_time}")
+            ;;
+        summarize)
+            # tok/s from stage stdout: grep STDOUT_TMP (NOT the OUTPUT_FILE line)
+            speed_metric="tok_per_s"
+            speed_value=$(grep -oE '[0-9]+\.[0-9]+ tok/s' "$STDOUT_TMP" | tail -1 | awk '{print $1}')
+            if [ -z "$speed_value" ]; then
+                speed_value="0"
+            fi
+            ;;
+    esac
+
+    # Clean up both temp files (T-04-10)
+    rm -f "$TIME_OUT" "$STDOUT_TMP"
+
+    # ── Step 5: Write success JSON ────────────────────────────────────────────
+    mkdir -p "$(dirname "$result_json_path")"
+    write_success_json \
+        "$model_id" "$label" "$stage" \
+        "$speed_metric" "$speed_value" \
+        "$peak_bytes" "$peak_gb" \
+        "$wall_time" "$audio_duration_sec" \
+        "$output_file" "$result_json_path" \
+        "$warmup_wall"
+
+    # Result summary line
+    printf "  %-35s  %s: %-8s  Mem: %s GB\n" \
+        "$label" "$speed_metric" "$speed_value" "$peak_gb"
+
+    # ── Step 6: COOL-DOWN (D-14) ─────────────────────────────────────────────
+    sleep "$BENCH_COOLDOWN_SECS"
+}
 
 # TODO: REMOVE AFTER 04-04 — temporary skeleton smoke check; 04-04 Task 1 strips this block
 # This block verifies the skeleton is runnable and the parser returns correct candidate counts.
