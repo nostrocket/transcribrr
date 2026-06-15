@@ -495,30 +495,54 @@ run_candidate() {
     # STDOUT_TMP — receives full stage stdout (for tok/s grep)
     # Both are mktemp'd (T-04-10); both are rm -f'd on success AND failure paths.
 
-    local TIME_OUT STDOUT_TMP
+    local TIME_OUT STDOUT_TMP TIME_EXIT_FILE
     TIME_OUT=$(mktemp)
     STDOUT_TMP=$(mktemp)
+    TIME_EXIT_FILE=$(mktemp)
 
     local t_start t_end wall_time candidate_exit STAGE_OUT
     t_start=$(date +%s)
 
-    # Live progress (BENCH-08) — overwrite same terminal line
-    printf "  [%s]  %-35s  elapsed: 0s\r" "$stage" "$label"
+    # Live progress (BENCH-08) — background ticker so elapsed time is real, not frozen at 0s.
+    # Kills cleanly before metrics; any output after kill goes to /dev/null.
+    local TIMER_PID
+    (
+        while true; do
+            _now=$(date +%s)
+            _elapsed=$((_now - t_start))
+            printf "  [%s]  %-35s  elapsed: %ds\r" "$stage" "$label" "$_elapsed" 2>/dev/null || true
+            sleep 5
+        done
+    ) &
+    TIMER_PID=$!
 
+    # CR-01 fix: capture stage script's real exit code in a temp file from inside the
+    # subshell, BEFORE the pipeline's || true can mask it.  The inner group writes the
+    # /usr/bin/time exit to TIME_EXIT_FILE; the outer grep || true only suppresses
+    # grep's own "no OUTPUT_FILE= line" exit — it no longer masks the stage exit.
     set +e
-    STAGE_OUT=$( /usr/bin/time -l "$stage_script" "$input_file" \
-                   --model "$model_id" $STAGE_EXTRA \
-                   2>"$TIME_OUT" \
-                 | tee "$STDOUT_TMP" /dev/stderr \
-                 | grep "^OUTPUT_FILE=" || true )
-    candidate_exit=$?
+    STAGE_OUT=$(
+        (
+            /usr/bin/time -l "$stage_script" "$input_file" \
+                --model "$model_id" $STAGE_EXTRA
+            printf '%s' "$?" > "$TIME_EXIT_FILE"
+        ) 2>"$TIME_OUT" \
+        | tee "$STDOUT_TMP" /dev/stderr \
+        | { grep "^OUTPUT_FILE=" || true; }
+    )
     set -e
+    candidate_exit=$(cat "$TIME_EXIT_FILE" 2>/dev/null || echo 1)
+    rm -f "$TIME_EXIT_FILE"
+
+    # Stop the progress ticker; print a final completion line with actual elapsed time.
+    kill "$TIMER_PID" 2>/dev/null
+    wait "$TIMER_PID" 2>/dev/null || true
 
     t_end=$(date +%s)
     wall_time=$((t_end - t_start))
 
-    # Final elapsed update after candidate completes
-    echo ""
+    # Final elapsed line — clears the \r progress line with the actual elapsed time.
+    printf "  [%s]  %-35s  elapsed: %ds\n" "$stage" "$label" "$wall_time"
 
     # ── Step 3: FAILURE (D-16) — write error JSON, clean up, cool down, return ─
     if [ "$candidate_exit" -ne 0 ]; then
