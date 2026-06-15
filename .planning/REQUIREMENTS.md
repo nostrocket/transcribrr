@@ -21,13 +21,13 @@ Requirements for the Model Benchmarking & Auto-Selection milestone. Each maps to
 
 ### Benchmark Engine (BENCH)
 
-- [ ] **BENCH-01**: A `--benchmark` mode runs each fitting candidate through its real pipeline stage on a sample input, producing real per-model output.
+- [x] **BENCH-01**: A `--benchmark` mode runs each fitting candidate through its real pipeline stage on a sample input, producing real per-model output.
 - [ ] **BENCH-02**: Each candidate runs in its own subprocess so MLX/Metal memory is released between models (prevents mid-sweep OOM).
 - [ ] **BENCH-03**: Each model gets a discarded warm-up pass before the timed pass so model-load/JIT-compile time does not contaminate measurements.
 - [ ] **BENCH-04**: The engine records wall-clock time per stage and derives the speed metric (RTF for transcription, tokens/sec for the LLM stages) and peak memory per model.
 - [ ] **BENCH-05**: The engine captures a real output excerpt from each model for side-by-side quality comparison.
 - [ ] **BENCH-06**: The benchmark obtains a default audio sample by downloading it on first run and caching it locally, so runs are reproducible without bundling a file in the repo.
-- [ ] **BENCH-07**: Missing benchmark dependencies (notably `mlx-whisper`, absent from `.venv`) are auto-installed as part of `--benchmark` setup, consistent with the existing auto-install-deps behavior.
+- [x] **BENCH-07**: Missing benchmark dependencies (notably `mlx-whisper`, absent from `.venv`) are auto-installed as part of `--benchmark` setup, consistent with the existing auto-install-deps behavior.
 - [ ] **BENCH-08**: Live progress is shown during the sweep (current model, stage, elapsed) so a long run is clearly not hung.
 
 ### Resumable Sweep (RESUME)
@@ -90,13 +90,13 @@ Explicitly excluded. Anti-features from research with reasoning.
 | HW-01 | Phase 4 | Pending |
 | HW-02 | Phase 4 | Pending |
 | HW-03 | Phase 4 | Pending |
-| BENCH-01 | Phase 4 | Pending |
+| BENCH-01 | Phase 4 | Complete |
 | BENCH-02 | Phase 4 | Pending |
 | BENCH-03 | Phase 4 | Pending |
 | BENCH-04 | Phase 4 | Pending |
 | BENCH-05 | Phase 4 | Pending |
 | BENCH-06 | Phase 4 | Pending |
-| BENCH-07 | Phase 4 | Pending |
+| BENCH-07 | Phase 4 | Complete |
 | BENCH-08 | Phase 4 | Pending |
 | RESUME-01 | Phase 5 | Pending |
 | RESUME-02 | Phase 5 | Pending |

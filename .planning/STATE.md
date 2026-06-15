@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Model Benchmarking & Auto-Selection
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-06-15T09:04:06.534Z"
-last_activity: 2026-06-15 -- Phase null planning complete
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-06-15T09:32:05.238Z"
+last_activity: 2026-06-15
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 6
-  completed_plans: 2
+  completed_plans: 3
   percent: 25
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** One command takes a YouTube URL to a finished markdown file (summary + full transcript) reliably and unattended — reusing the existing MLX scripts.
-**Current focus:** Phase 03 — candidate-config-pipeline-settings-integration
+**Current focus:** Phase 04 — benchmark-engine-core
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
+Phase: 04 (benchmark-engine-core) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-06-15 -- Phase null planning complete
+Last activity: 2026-06-15
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: Stable
 
 *Updated after each plan completion*
+| Phase 04 P01 | 8m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - v2.0 roadmap: subprocess-per-candidate is the mandatory architecture for benchmark (MLX Metal memory not released within one process)
 - v2.0 roadmap: Never source config/candidates.conf — parse with grep/while read to prevent injection from skill-written content
 - v1.0: Bash 3.2.57 compat enforced — no mapfile, no declare -A, no float in (( )), LC_NUMERIC=C for bc
+- [Phase ?]: exec dispatch so benchmark.sh inherits terminal TTY for interactive guard
+- [Phase ?]: parse_candidates uses while-read/case (bash 3.2 safe, parse-not-source); emit-last-block stanza mandatory to avoid dropping last candidate (Pitfall E)
 
 ### Pending Todos
 
@@ -94,9 +97,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-15T04:39:35.988Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-benchmark-engine-core/04-CONTEXT.md
+Last session: 2026-06-15T09:32:05.235Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
