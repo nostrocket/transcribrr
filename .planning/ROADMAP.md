@@ -67,7 +67,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-02-PLAN.md — RAM detection + 75% fit gate, disk-space gate, HF cache detect + pre-fetch, default sample download/cache (HW-01/02/03, BENCH-06)
+- [x] 04-02-PLAN.md — RAM detection + 75% fit gate, disk-space gate, HF cache detect + pre-fetch, default sample download/cache (HW-01/02/03, BENCH-06)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -117,6 +117,6 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 1. Scriptable Pipeline Foundation | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
-| 4. Benchmark Engine Core | v2.0 | 1/4 | In Progress|  |
+| 4. Benchmark Engine Core | v2.0 | 2/4 | In Progress|  |
 | 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
