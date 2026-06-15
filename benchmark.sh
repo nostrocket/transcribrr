@@ -248,7 +248,7 @@ if [ "$NEEDED_GB" -gt 0 ]; then
 fi
 
 # ── Model pre-fetch — download uncached fitting candidates (D-08) ─────────────
-# Use .venv/bin/hf (NOT deprecated huggingface-cli — Pitfall D / RESEARCH Decision #4).
+# Use .venv/bin/hf (the current hf CLI — NOT the deprecated legacy tool — Pitfall D / RESEARCH Decision #4).
 # Guard with is_model_cached() before every hf download call.
 # All fitting models must be cached locally before timing starts.
 
