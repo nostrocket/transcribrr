@@ -60,7 +60,11 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   6. A default benchmark audio sample is downloaded and cached on first run; subsequent runs use the local cache without network access
   7. Live progress is printed during the sweep showing current model, stage, and elapsed time — a long run does not appear hung
 
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 04-01-PLAN.md — transcribrr.sh --benchmark/--sample exec-dispatch, .gitignore results/, benchmark.sh skeleton (TTY guard, setup_venv, helpers, candidates parser) (BENCH-01, BENCH-07)
+- [ ] 04-02-PLAN.md — RAM detection + 75% fit gate, disk-space gate, HF cache detect + pre-fetch, default sample download/cache (HW-01/02/03, BENCH-06)
+- [ ] 04-03-PLAN.md — run_candidate engine: warm-up + /usr/bin/time -l timed pass, RTF/tok-s, peak mem, excerpt, JSON writers, cooldown, live progress, continue-on-failure (BENCH-02/03/04/05/08)
+- [ ] 04-04-PLAN.md — staged sweep loop (whisper→cleanup→summarize), skip records, interactive per-stage selection + chaining, sweep_meta.json (BENCH-01, HW-02, BENCH-08)
 **UI hint**: no
 
 ### Phase 5: Resumable Sweep, Report & Winner Selection
@@ -101,6 +105,6 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 1. Scriptable Pipeline Foundation | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
-| 4. Benchmark Engine Core | v2.0 | 0/TBD | Not started | - |
+| 4. Benchmark Engine Core | v2.0 | 0/4 | Not started | - |
 | 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
