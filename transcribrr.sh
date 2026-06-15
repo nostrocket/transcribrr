@@ -27,6 +27,8 @@ MP3_FILE=""
 INPUT_ARG=""
 IS_URL=false
 URL=""
+BENCHMARK_MODE=false
+BENCH_SAMPLE_ARG=""
 
 # ── ERR trap — names the failing stage ───────────────────────────────────────
 
@@ -81,6 +83,17 @@ Options:
                           Styles: executive, detailed, bullets, chapters, blog
                           Default: blog
 
+  --benchmark             Run the interactive benchmark sweep. Requires an
+                          interactive TTY. For each pipeline stage (whisper,
+                          cleanup, summarize), runs all hardware-fitting model
+                          candidates, measures speed and memory, shows a real
+                          output excerpt, then prompts you to select the best
+                          result. Per-stage picks chain into the next stage.
+
+  --sample <url|mp3>      Override the default benchmark audio sample.
+                          Accepts a YouTube URL or path to a local MP3.
+                          Default: https://www.youtube.com/watch?v=EWo7-azGHic
+
   --no-install            Do not auto-install missing dependencies; fail with an
                           install hint instead (default: auto-install via Homebrew).
 
@@ -132,6 +145,14 @@ while [[ $# -gt 0 ]]; do
             NO_INSTALL=true
             shift
             ;;
+        --benchmark)
+            BENCHMARK_MODE=true
+            shift
+            ;;
+        --sample)
+            BENCH_SAMPLE_ARG="$2"
+            shift 2
+            ;;
         --help|-h)
             print_help
             exit 0
@@ -181,6 +202,22 @@ if [ -f "$SETTINGS_FILE" ]; then
             SUMMARY_MODEL="$_val"
             SUMMARY_MODEL_SOURCE="settings.conf"
         fi
+    fi
+fi
+
+# ── Benchmark dispatch (D-17) ─────────────────────────────────────────────────
+# exec replaces this process — no code after this block runs in benchmark mode.
+# Uses exec (not fork) so benchmark.sh inherits the terminal TTY for [ -t 0 ] guard.
+
+if [ "$BENCHMARK_MODE" = true ]; then
+    if [ ! -f "$SCRIPT_DIR/benchmark.sh" ] || [ ! -x "$SCRIPT_DIR/benchmark.sh" ]; then
+        echo "Error: benchmark.sh not found or not executable: $SCRIPT_DIR/benchmark.sh" >&2
+        exit 1
+    fi
+    if [ -n "$BENCH_SAMPLE_ARG" ]; then
+        exec "$SCRIPT_DIR/benchmark.sh" --sample "$BENCH_SAMPLE_ARG"
+    else
+        exec "$SCRIPT_DIR/benchmark.sh"
     fi
 fi
 
