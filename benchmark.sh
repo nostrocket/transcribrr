@@ -42,6 +42,13 @@ BENCH_COOLDOWN_SECS=45       # D-14: 45 s default within 30–60 s range
 CURRENT_STAGE="init"
 trap 'echo "Error: benchmark.sh failed during: $CURRENT_STAGE" >&2' ERR
 
+# WR-04 fix: EXIT trap to clean up known temp files on SIGINT, SIGTERM, or any exit.
+# Composes safely with the ERR trap above — does not touch CURRENT_STAGE.
+# Files are registered into _BENCH_TMPFILES as they are allocated.
+_BENCH_TMPFILES=()
+_bench_cleanup() { rm -f "${_BENCH_TMPFILES[@]}" 2>/dev/null; }
+trap '_bench_cleanup' EXIT INT TERM
+
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
 BENCH_SAMPLE_ARG=""
@@ -498,11 +505,15 @@ run_candidate() {
     if [ "$stage" = "whisper" ]; then
         # Generate a 5-second sine wave for warm-up (populates Metal kernel cache)
         warmup_input=$(mktemp /tmp/benchmark_warmup_XXXXXX.wav)
+        # WR-04 fix: ensure warmup file is removed even if ffmpeg fails under set -e
+        # (local trap inside the function; does not interfere with global ERR/EXIT traps).
+        trap 'rm -f "$warmup_input" 2>/dev/null' RETURN
         ffmpeg -f lavfi -i "sine=frequency=440:duration=5" -ar 16000 \
                "$warmup_input" -y -loglevel quiet
     else
         # Cleanup/summarize: warm up on a tiny temp text file
         warmup_input=$(mktemp /tmp/benchmark_warmup_XXXXXX.txt)
+        trap 'rm -f "$warmup_input" 2>/dev/null' RETURN
         printf "This is a short warm-up text for the %s model.\n" "$stage" > "$warmup_input"
     fi
 
@@ -514,6 +525,7 @@ run_candidate() {
     warmup_end=$(date +%s)
     warmup_wall=$((warmup_end - warmup_start))
     rm -f "$warmup_input"
+    warmup_input=""   # prevent RETURN trap double-removing a re-used name
 
     # Brief cool-down after warm-up before timed pass
     sleep 5
@@ -766,6 +778,7 @@ SELECTED_SUMMARY=""
 CURRENT_STAGE="sweep-whisper"
 
 WHISPER_RESULTS_LIST=$(mktemp /tmp/benchmark_whisper_list_XXXXXX)
+_BENCH_TMPFILES+=("$WHISPER_RESULTS_LIST")
 
 # Count fitting whisper candidates for the banner
 WHISPER_CANDIDATE_COUNT=0
@@ -844,6 +857,7 @@ echo "  Selected transcript: $SELECTED_TRANSCRIPT"
 CURRENT_STAGE="sweep-cleanup"
 
 CLEANUP_RESULTS_LIST=$(mktemp /tmp/benchmark_cleanup_list_XXXXXX)
+_BENCH_TMPFILES+=("$CLEANUP_RESULTS_LIST")
 
 CLEANUP_CANDIDATE_COUNT=0
 while IFS='|' read -r _id _label _size; do
@@ -919,6 +933,7 @@ echo "  Selected cleaned transcript: $SELECTED_CLEANED"
 CURRENT_STAGE="sweep-summarize"
 
 SUMMARIZE_RESULTS_LIST=$(mktemp /tmp/benchmark_summarize_list_XXXXXX)
+_BENCH_TMPFILES+=("$SUMMARIZE_RESULTS_LIST")
 
 SUMMARIZE_CANDIDATE_COUNT=0
 while IFS='|' read -r _id _label _size; do
