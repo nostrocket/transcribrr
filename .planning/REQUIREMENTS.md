@@ -9,9 +9,9 @@ Requirements for the Model Benchmarking & Auto-Selection milestone. Each maps to
 
 ### Candidate Models (MODEL)
 
-- [ ] **MODEL-01**: A `candidates.conf` config file lists benchmark candidates per stage (transcription, cleanup, summarization), each with HF ID, friendly label, stage, and approximate size — parsed (never sourced) by the benchmark engine.
-- [ ] **MODEL-02**: The repo ships a vetted initial candidate list covering current best-in-class MLX models per stage (e.g. whisper-large-v3-turbo / distil-large-v3 for ASR; Llama-3.x / Qwen3 small for cleanup; Qwen3-14B/32B, Qwen2.5-32B, Llama-3.3-70B for summarization).
-- [ ] **MODEL-03**: The benchmark accepts any candidate as a raw HF ID, reusing the existing `--model <label|hf-id>` plumbing in the stage scripts (no stage-script modification required).
+- [x] **MODEL-01**: A `candidates.conf` config file lists benchmark candidates per stage (transcription, cleanup, summarization), each with HF ID, friendly label, stage, and approximate size — parsed (never sourced) by the benchmark engine.
+- [x] **MODEL-02**: The repo ships a vetted initial candidate list covering current best-in-class MLX models per stage (e.g. whisper-large-v3-turbo / distil-large-v3 for ASR; Llama-3.x / Qwen3 small for cleanup; Qwen3-14B/32B, Qwen2.5-32B, Llama-3.3-70B for summarization).
+- [x] **MODEL-03**: The benchmark accepts any candidate as a raw HF ID, reusing the existing `--model <label|hf-id>` plumbing in the stage scripts (no stage-script modification required).
 
 ### Hardware Fit (HW)
 
@@ -43,9 +43,9 @@ Requirements for the Model Benchmarking & Auto-Selection milestone. Each maps to
 
 ### Pipeline Auto-Selection (CFG)
 
-- [ ] **CFG-01**: A normal `transcribrr.sh` run reads the settings file (if present) to select default models per stage.
-- [ ] **CFG-02**: Model selection precedence is explicit and correct: CLI flag > settings file > built-in default (a flag that names the built-in default still overrides the settings file).
-- [ ] **CFG-03**: On a normal run, a settings-file model that no longer exists/loads produces a clear, actionable error pointing back to `--benchmark`, not a cryptic load failure.
+- [x] **CFG-01**: A normal `transcribrr.sh` run reads the settings file (if present) to select default models per stage.
+- [x] **CFG-02**: Model selection precedence is explicit and correct: CLI flag > settings file > built-in default (a flag that names the built-in default still overrides the settings file).
+- [x] **CFG-03**: On a normal run, a settings-file model that no longer exists/loads produces a clear, actionable error pointing back to `--benchmark`, not a cryptic load failure.
 
 ### Candidate Refresh Skill (SKILL)
 
@@ -84,9 +84,9 @@ Explicitly excluded. Anti-features from research with reasoning.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MODEL-01 | Phase 3 | Pending |
-| MODEL-02 | Phase 3 | Pending |
-| MODEL-03 | Phase 3 | Pending |
+| MODEL-01 | Phase 3 | Complete |
+| MODEL-02 | Phase 3 | Complete |
+| MODEL-03 | Phase 3 | Complete |
 | HW-01 | Phase 4 | Pending |
 | HW-02 | Phase 4 | Pending |
 | HW-03 | Phase 4 | Pending |
@@ -103,15 +103,16 @@ Explicitly excluded. Anti-features from research with reasoning.
 | RPT-01 | Phase 5 | Pending |
 | RPT-02 | Phase 5 | Pending |
 | RPT-03 | Phase 5 | Pending |
-| CFG-01 | Phase 3 | Pending |
-| CFG-02 | Phase 3 | Pending |
-| CFG-03 | Phase 3 | Pending |
+| CFG-01 | Phase 3 | Complete |
+| CFG-02 | Phase 3 | Complete |
+| CFG-03 | Phase 3 | Complete |
 | SKILL-01 | Phase 6 | Pending |
 | SKILL-02 | Phase 6 | Pending |
 | SKILL-03 | Phase 6 | Pending |
 | SKILL-04 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v2.0 requirements: 26 total
 - Mapped to phases: 26
 - Unmapped: 0 ✓
