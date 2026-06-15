@@ -248,14 +248,19 @@ done
 
 CURRENT_STAGE="disk-gate"
 
-NEEDED_GB=0
+# WR-05 fix: accumulate as float (NEEDED_GB_F), then ceiling to nearest integer.
+# The original "%d" truncation caused sub-0.5 GB models to contribute 0 each,
+# so an all-tiny uncached set could total NEEDED_GB=0 and skip the gate entirely.
+NEEDED_GB_F="0"
 for i in "${!FITTING_IDS[@]}"; do
     model_id="${FITTING_IDS[$i]}"
     size_gb="${FITTING_SIZES[$i]}"
     if ! is_model_cached "$model_id"; then
-        NEEDED_GB=$(awk "BEGIN{printf \"%d\", $NEEDED_GB + $size_gb + 0.5}")
+        NEEDED_GB_F=$(awk "BEGIN{printf \"%.3f\", $NEEDED_GB_F + $size_gb}")
     fi
 done
+# Ceiling: if the float has a fractional part, round up; otherwise use exact value.
+NEEDED_GB=$(awk "BEGIN{ v=$NEEDED_GB_F; printf \"%d\", (v == int(v)) ? v : int(v)+1 }")
 
 if [ "$NEEDED_GB" -gt 0 ]; then
     mkdir -p "$HF_CACHE"
