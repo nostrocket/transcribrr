@@ -290,7 +290,17 @@ else
         BENCH_SAMPLE_URL="$BENCH_SAMPLE_ARG"
     fi
 
+    # WR-01 fix: extract VIDEO_ID from ?v=, &v= (watch URLs), and youtu.be/<id> path.
+    # If neither pattern matches (unknown URL shape), fall back to a hash of the URL
+    # so two distinct URLs never collide on the same sample_.mp3 cache file.
     VIDEO_ID=$(echo "$BENCH_SAMPLE_URL" | grep -oE '[?&]v=[^&]+' | sed 's/[?&]v=//')
+    if [ -z "$VIDEO_ID" ]; then
+        VIDEO_ID=$(echo "$BENCH_SAMPLE_URL" | grep -oE 'youtu\.be/([^?&]+)' | sed 's|youtu\.be/||')
+    fi
+    if [ -z "$VIDEO_ID" ]; then
+        # Last-resort: hash the URL so distinct URLs do not collide
+        VIDEO_ID=$(echo "$BENCH_SAMPLE_URL" | cksum | awk '{print $1}')
+    fi
     SAMPLE_MP3="$RESULTS_DIR/sample_${VIDEO_ID}.mp3"
     mkdir -p "$RESULTS_DIR"
 
