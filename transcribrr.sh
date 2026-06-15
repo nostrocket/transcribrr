@@ -150,6 +150,12 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --sample)
+            # WR-03 fix: guard against bare --sample with no following value (set -u crash)
+            if [ $# -lt 2 ]; then
+                echo "Error: --sample requires an argument (URL or MP3 path)." >&2
+                echo "Run with --help for usage." >&2
+                exit 1
+            fi
             BENCH_SAMPLE_ARG="$2"
             shift 2
             ;;

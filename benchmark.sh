@@ -48,11 +48,24 @@ BENCH_SAMPLE_ARG=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --sample)
+            # WR-03 fix: guard against bare --sample with no following value (set -u crash)
+            if [ $# -lt 2 ]; then
+                echo "Error: --sample requires an argument (URL or MP3 path)." >&2
+                echo "Usage: benchmark.sh [--sample <url|mp3>]" >&2
+                exit 1
+            fi
             BENCH_SAMPLE_ARG="$2"
             shift 2
             ;;
         -*)
             echo "Unknown option: $1" >&2
+            echo "Usage: benchmark.sh [--sample <url|mp3>]" >&2
+            exit 1
+            ;;
+        *)
+            # WR-03 fix: add default case so positional args don't cause an infinite loop
+            # (no shift occurred previously, so $# never decremented).
+            echo "Error: unexpected argument: $1" >&2
             echo "Usage: benchmark.sh [--sample <url|mp3>]" >&2
             exit 1
             ;;
