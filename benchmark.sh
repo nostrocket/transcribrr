@@ -240,6 +240,12 @@ done
 if [ "$NEEDED_GB" -gt 0 ]; then
     mkdir -p "$HF_CACHE"
     AVAIL_GB=$(df -g "$HF_CACHE" 2>/dev/null | awk 'NR==2 {print $4}')
+    # CR-02 fix: guard against empty AVAIL_GB (unexpected df output → awk syntax error
+    # with set -e aborts the entire script before any model is tested).
+    if [ -z "$AVAIL_GB" ] || ! echo "$AVAIL_GB" | grep -qE '^[0-9]+$'; then
+        echo "Warning: cannot determine available disk space for $HF_CACHE — skipping disk-space gate." >&2
+        AVAIL_GB="$NEEDED_GB"   # treat as exactly sufficient; gate passes, but warns
+    fi
     ENOUGH=$(awk "BEGIN { if ($NEEDED_GB <= $AVAIL_GB) print \"yes\"; else print \"no\" }")
     if [ "$ENOUGH" = "no" ]; then
         echo "Error: Insufficient disk space for model pre-fetch. Need: ${NEEDED_GB} GB | Available: ${AVAIL_GB} GB" >&2
