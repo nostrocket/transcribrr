@@ -71,7 +71,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-03-PLAN.md — run_candidate engine: warm-up + /usr/bin/time -l timed pass, RTF/tok-s, peak mem, excerpt, JSON writers, cooldown, live progress, continue-on-failure (BENCH-02/03/04/05/08)
+- [x] 04-03-PLAN.md — run_candidate engine: warm-up + /usr/bin/time -l timed pass, RTF/tok-s, peak mem, excerpt, JSON writers, cooldown, live progress, continue-on-failure (BENCH-02/03/04/05/08)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -117,6 +117,6 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 1. Scriptable Pipeline Foundation | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
-| 4. Benchmark Engine Core | v2.0 | 2/4 | In Progress|  |
+| 4. Benchmark Engine Core | v2.0 | 3/4 | In Progress|  |
 | 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
