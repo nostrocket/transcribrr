@@ -168,6 +168,150 @@ parse_candidates() {
     fi
 }
 
+# ── Hardware memory detection (HW-01, D-05/D-06) ────────────────────────────
+# Detect total unified memory via sysctl, compute 75% usable ceiling.
+# Bash 3.2: no float in (( )) — all arithmetic via awk.
+
+CURRENT_STAGE="hardware-detection"
+
+MEMSIZE_BYTES=$(sysctl -n hw.memsize)
+TOTAL_GB=$(echo "$MEMSIZE_BYTES" | awk '{printf "%d", $1/1024/1024/1024}')
+USABLE_GB=$(echo "$TOTAL_GB" | awk '{printf "%d", $1 * 0.75}')
+echo "Detected RAM: ${TOTAL_GB} GB | Usable ceiling: ${USABLE_GB} GB (75%)"
+
+# ── HF cache detection helper (Pattern 3, Pitfall D) ────────────────────────
+# Checks local dir structure — no network access.
+# Returns 0 (cached) or 1 (not cached).
+
+is_model_cached() {
+    local model_id="$1"
+    local cache_name="models--$(echo "$model_id" | sed 's|/|--|g')"
+    local snapshots_dir="$HF_CACHE/$cache_name/snapshots"
+    [ -d "$snapshots_dir" ] && [ -n "$(ls -A "$snapshots_dir" 2>/dev/null)" ]
+}
+
+# ── Fit gate — classify each candidate as fit/skip (HW-02/03, D-07) ─────────
+# estimate = size_gb + BENCH_OVERHEAD_BUFFER_GB; compare <= USABLE_GB via awk.
+# NEVER use (( )) for float comparison — bash 3.2 integer-only.
+# Fitting candidates are accumulated for the disk-space gate and pre-fetch.
+
+CURRENT_STAGE="fit-gate"
+
+# Arrays for fitting candidates (bash 3.2 safe: append to indexed array)
+FITTING_IDS=()
+FITTING_LABELS=()
+FITTING_SIZES=()
+FITTING_STAGES=()
+
+for stage_filter in whisper cleanup summarize; do
+    while IFS='|' read -r model_id label size_gb; do
+        FIT=$(awk "BEGIN {
+            estimate = $size_gb + $BENCH_OVERHEAD_BUFFER_GB
+            if (estimate <= $USABLE_GB) print \"fit\"
+            else print \"skip\"
+        }")
+        if [ "$FIT" = "skip" ]; then
+            ESTIMATE=$(awk "BEGIN{printf \"%.1f\", $size_gb + $BENCH_OVERHEAD_BUFFER_GB}")
+            echo "  SKIP $label: ${size_gb}+${BENCH_OVERHEAD_BUFFER_GB}=${ESTIMATE} GB > ${USABLE_GB} GB usable"
+        else
+            FITTING_IDS+=("$model_id")
+            FITTING_LABELS+=("$label")
+            FITTING_SIZES+=("$size_gb")
+            FITTING_STAGES+=("$stage_filter")
+        fi
+    done < <(parse_candidates "$stage_filter" "$CANDIDATES_CONF")
+done
+
+# ── Disk-space gate — guard before any download (D-09) ───────────────────────
+# Sum size_gb of fitting-but-uncached candidates; hard-abort if insufficient.
+# The disk gate MUST run before any hf download invocation.
+
+CURRENT_STAGE="disk-gate"
+
+NEEDED_GB=0
+for i in "${!FITTING_IDS[@]}"; do
+    model_id="${FITTING_IDS[$i]}"
+    size_gb="${FITTING_SIZES[$i]}"
+    if ! is_model_cached "$model_id"; then
+        NEEDED_GB=$(awk "BEGIN{printf \"%d\", $NEEDED_GB + $size_gb + 0.5}")
+    fi
+done
+
+if [ "$NEEDED_GB" -gt 0 ]; then
+    mkdir -p "$HF_CACHE"
+    AVAIL_GB=$(df -g "$HF_CACHE" 2>/dev/null | awk 'NR==2 {print $4}')
+    ENOUGH=$(awk "BEGIN { if ($NEEDED_GB <= $AVAIL_GB) print \"yes\"; else print \"no\" }")
+    if [ "$ENOUGH" = "no" ]; then
+        echo "Error: Insufficient disk space for model pre-fetch. Need: ${NEEDED_GB} GB | Available: ${AVAIL_GB} GB" >&2
+        exit 1
+    fi
+fi
+
+# ── Model pre-fetch — download uncached fitting candidates (D-08) ─────────────
+# Use .venv/bin/hf (NOT deprecated huggingface-cli — Pitfall D / RESEARCH Decision #4).
+# Guard with is_model_cached() before every hf download call.
+# All fitting models must be cached locally before timing starts.
+
+CURRENT_STAGE="pre-fetch"
+
+for i in "${!FITTING_IDS[@]}"; do
+    model_id="${FITTING_IDS[$i]}"
+    label="${FITTING_LABELS[$i]}"
+    if is_model_cached "$model_id"; then
+        echo "  Cached: $label"
+    else
+        echo "  Downloading $label ($model_id) ..."
+        "$HF_CLI" download "$model_id"
+    fi
+done
+
+# ── Sample audio cache (BENCH-06, D-13) ─────────────────────────────────────
+# Branch 1 — LOCAL FILE: --sample <existing-path> → use directly, no download.
+# Branch 2 — URL / default: download via yt-dlp and cache under results/.
+# DEFAULT sample: https://www.youtube.com/watch?v=EWo7-azGHic (full video, D-13).
+
+CURRENT_STAGE="sample-audio"
+
+BENCH_SAMPLE_URL="https://www.youtube.com/watch?v=EWo7-azGHic"
+
+if [ -n "$BENCH_SAMPLE_ARG" ] && [ -f "$BENCH_SAMPLE_ARG" ]; then
+    # Branch 1: caller supplied an existing local file — use directly, no download.
+    SAMPLE_MP3="$BENCH_SAMPLE_ARG"
+    echo "Using local sample file: $SAMPLE_MP3"
+else
+    # Branch 2: URL (or default). Override default if a URL was supplied.
+    if [ -n "$BENCH_SAMPLE_ARG" ]; then
+        BENCH_SAMPLE_URL="$BENCH_SAMPLE_ARG"
+    fi
+
+    VIDEO_ID=$(echo "$BENCH_SAMPLE_URL" | grep -oE '[?&]v=[^&]+' | sed 's/[?&]v=//')
+    SAMPLE_MP3="$RESULTS_DIR/sample_${VIDEO_ID}.mp3"
+    mkdir -p "$RESULTS_DIR"
+
+    if [ ! -f "$SAMPLE_MP3" ]; then
+        stage_banner "Downloading benchmark sample audio (first run only)"
+        ensure_dep yt-dlp yt-dlp
+        yt-dlp -x --audio-format mp3 \
+               --no-playlist \
+               -o "$RESULTS_DIR/sample_${VIDEO_ID}.%(ext)s" \
+               "$BENCH_SAMPLE_URL"
+    else
+        echo "Sample audio cached: $SAMPLE_MP3"
+    fi
+fi
+
+# ── Audio duration (RTF denominator — compute once, D-11) ────────────────────
+# Reuse transcribe.sh ffmpeg idiom (lines 103-113).
+# LC_NUMERIC=C bc is mandatory to avoid locale decimal-separator issues.
+
+CURRENT_STAGE="audio-duration"
+
+ensure_dep ffmpeg ffmpeg
+DURATION_STR=$(ffmpeg -i "$SAMPLE_MP3" 2>&1 | grep "Duration" | awk '{print $2}' | tr -d ,)
+IFS=: read h m s <<< "$DURATION_STR"
+AUDIO_DURATION_S=$(echo "$h * 3600 + $m * 60 + $s" | LC_NUMERIC=C bc)
+echo "Audio duration: $DURATION_STR (${AUDIO_DURATION_S%.*} seconds)"
+
 # TODO: REMOVE AFTER 04-04 — temporary skeleton smoke check; 04-04 Task 1 strips this block
 # This block verifies the skeleton is runnable and the parser returns correct candidate counts.
 
