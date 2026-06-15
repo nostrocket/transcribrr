@@ -61,10 +61,22 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   7. Live progress is printed during the sweep showing current model, stage, and elapsed time — a long run does not appear hung
 
 **Plans**: 4 plans
+**Wave 1**
+
 - [ ] 04-01-PLAN.md — transcribrr.sh --benchmark/--sample exec-dispatch, .gitignore results/, benchmark.sh skeleton (TTY guard, setup_venv, helpers, candidates parser) (BENCH-01, BENCH-07)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 04-02-PLAN.md — RAM detection + 75% fit gate, disk-space gate, HF cache detect + pre-fetch, default sample download/cache (HW-01/02/03, BENCH-06)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 04-03-PLAN.md — run_candidate engine: warm-up + /usr/bin/time -l timed pass, RTF/tok-s, peak mem, excerpt, JSON writers, cooldown, live progress, continue-on-failure (BENCH-02/03/04/05/08)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 04-04-PLAN.md — staged sweep loop (whisper→cleanup→summarize), skip records, interactive per-stage selection + chaining, sweep_meta.json (BENCH-01, HW-02, BENCH-08)
+
 **UI hint**: no
 
 ### Phase 5: Resumable Sweep, Report & Winner Selection
