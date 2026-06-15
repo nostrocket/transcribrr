@@ -24,7 +24,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 **Milestone Goal:** Discover the best current MLX models for each pipeline stage, benchmark them on this hardware with real outputs, let the user pick winners, and have the normal pipeline automatically use them as defaults.
 
 - [x] **Phase 3: Candidate Config & Pipeline Settings Integration** - Candidate format defined, vetted initial list ships, and the normal pipeline reads a settings file with correct three-tier precedence (completed 2026-06-14)
-- [ ] **Phase 4: Benchmark Engine Core** - Hardware-aware sweep runs each fitting candidate in its own subprocess with warm-up, captures real speed/memory/output metrics, and shows live progress
+- [x] **Phase 4: Benchmark Engine Core** - Hardware-aware sweep runs each fitting candidate in its own subprocess with warm-up, captures real speed/memory/output metrics, and shows live progress (completed 2026-06-15)
 - [ ] **Phase 5: Resumable Sweep, Report & Winner Selection** - Sweep survives interruption, a comparison report surfaces real per-model results, and winner choices are written atomically to settings
 - [ ] **Phase 6: Claude Skill — Candidate Refresh** - A Claude Code skill researches and writes `candidates.conf`; `--benchmark` auto-launches it with graceful offline fallback and untrusted-output validation
 
@@ -75,7 +75,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 04-04-PLAN.md — staged sweep loop (whisper→cleanup→summarize), skip records, interactive per-stage selection + chaining, sweep_meta.json (BENCH-01, HW-02, BENCH-08)
+- [x] 04-04-PLAN.md — staged sweep loop (whisper→cleanup→summarize), skip records, interactive per-stage selection + chaining, sweep_meta.json (BENCH-01, HW-02, BENCH-08)
 
 **UI hint**: no
 
@@ -117,6 +117,6 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 1. Scriptable Pipeline Foundation | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
-| 4. Benchmark Engine Core | v2.0 | 3/4 | In Progress|  |
+| 4. Benchmark Engine Core | v2.0 | 4/4 | Complete   | 2026-06-15 |
 | 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
