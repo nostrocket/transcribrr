@@ -395,23 +395,94 @@ if [ "$NEEDED_GB" -gt 0 ]; then
     fi
 fi
 
-# ── Model pre-fetch — download uncached fitting candidates (D-08) ─────────────
+# ── Model pre-fetch — verify completeness, (re)download incomplete (D-08, MA2-01/02) ─
 # Use .venv/bin/hf (the current hf CLI — NOT the deprecated legacy tool — Pitfall D / RESEARCH Decision #4).
-# Guard with is_model_cached() before every hf download call.
-# All fitting models must be cached locally before timing starts.
+# Gate on verify_model_complete() (real shard check) — NOT is_model_cached (presence-only,
+# which falsely passes index-only snapshots). Incomplete models are (re)downloaded then
+# re-verified; persistent failures are recorded and SKIPPED (continue-on-failure, D-16) —
+# never abort the sweep. All complete fitting models must be present before timing starts.
 
 CURRENT_STAGE="pre-fetch"
+
+INCOMPLETE_IDS=()
 
 for i in "${!FITTING_IDS[@]}"; do
     model_id="${FITTING_IDS[$i]}"
     label="${FITTING_LABELS[$i]}"
-    if is_model_cached "$model_id"; then
-        echo "  Cached: $label"
+    if verify_model_complete "$model_id"; then
+        echo "  Verified complete: $label"
     else
         echo "  Downloading $label ($model_id) ..."
+        # D-16 continue-on-failure: a download error must not abort the sweep.
+        set +e
         "$HF_CLI" download "$model_id"
+        dl_rc=$?
+        set -e
+        if [ "$dl_rc" -ne 0 ]; then
+            echo "  WARNING: download of $label ($model_id) exited non-zero ($dl_rc)" >&2
+        fi
+        if verify_model_complete "$model_id"; then
+            echo "  Verified complete: $label"
+        else
+            echo "  ERROR: $label ($model_id) still incomplete after download — will skip during sweep" >&2
+            INCOMPLETE_IDS+=("$model_id")
+        fi
     fi
 done
+
+# ── Model inventory — per-stage detail table (MA2-03) ─────────────────────────
+# Columns: full HF repo id | params | quantization | on-disk size | approx memory.
+# Bash 3.2: indexed arrays only; all float math via awk; quant lowercase via tr (no ${var,,}).
+
+stage_banner "Model inventory"
+
+INV_FMT='  %-46s %-7s %-7s %8s %10s\n'
+for inv_stage in whisper cleanup summarize; do
+    # Skip stages with no fitting candidates.
+    inv_any=false
+    for i in "${!FITTING_IDS[@]}"; do
+        if [ "${FITTING_STAGES[$i]}" = "$inv_stage" ]; then inv_any=true; break; fi
+    done
+    [ "$inv_any" = true ] || continue
+
+    echo "  [$inv_stage]"
+    # shellcheck disable=SC2059
+    printf "$INV_FMT" "HF repo id" "params" "quant" "on-disk" "approx mem"
+    for i in "${!FITTING_IDS[@]}"; do
+        [ "${FITTING_STAGES[$i]}" = "$inv_stage" ] || continue
+        model_id="${FITTING_IDS[$i]}"
+        size_gb="${FITTING_SIZES[$i]}"
+
+        inv_params=$(params_for_id "$model_id")
+
+        # Quantization — lowercase via tr (bash 3.2 has no ${var,,}).
+        inv_id_lc=$(echo "$model_id" | tr 'A-Z' 'a-z')
+        case "$inv_id_lc" in
+            *4bit*|*q4*) inv_quant="4-bit" ;;
+            *8bit*|*q8*) inv_quant="8-bit" ;;
+            *)           inv_quant="fp16"  ;;
+        esac
+
+        # On-disk size — du of the model cache dir; "—" if missing/empty.
+        inv_cache="$HF_CACHE/models--$(echo "$model_id" | sed 's|/|--|g')"
+        inv_disk=$(du -sh "$inv_cache" 2>/dev/null | awk '{print $1}')
+        [ -n "$inv_disk" ] || inv_disk="—"
+
+        # Approx memory — size_gb + overhead buffer (awk float math, mirrors fit gate).
+        inv_mem=$(awk "BEGIN{printf \"%.1f GB\", $size_gb + $BENCH_OVERHEAD_BUFFER_GB}")
+
+        # shellcheck disable=SC2059
+        printf "$INV_FMT" "$model_id" "$inv_params" "$inv_quant" "$inv_disk" "$inv_mem"
+    done
+    echo ""
+done
+
+if [ ${#INCOMPLETE_IDS[@]} -gt 0 ]; then
+    echo "  WARNING: the following models stayed incomplete after download and will be SKIPPED during the sweep:" >&2
+    for inc in "${INCOMPLETE_IDS[@]}"; do
+        echo "    - $inc" >&2
+    done
+fi
 
 # ── Sample audio cache (BENCH-06, D-13) ─────────────────────────────────────
 # Branch 1 — LOCAL FILE: --sample <existing-path> → use directly, no download.
