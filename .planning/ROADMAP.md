@@ -25,7 +25,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 - [x] **Phase 3: Candidate Config & Pipeline Settings Integration** - Candidate format defined, vetted initial list ships, and the normal pipeline reads a settings file with correct three-tier precedence (completed 2026-06-14)
 - [x] **Phase 4: Benchmark Engine Core** - Hardware-aware sweep runs each fitting candidate in its own subprocess with warm-up, captures real speed/memory/output metrics, and shows live progress (completed 2026-06-15)
-- [ ] **Phase 5: Resumable Sweep, Report & Winner Selection** - Sweep survives interruption, a comparison report surfaces real per-model results, and winner choices are written atomically to settings
+- [ ] **Phase 5: Resumable Sweep, Report & Winner Selection** - Sweep survives interruption, a comparison report surfaces real per-model results (including a cross-model transcript divergence view), the disk-space gate counts incomplete-but-present models, and winner choices are written atomically to settings
 - [ ] **Phase 6: Claude Skill — Candidate Refresh** - A Claude Code skill researches and writes `candidates.conf`; `--benchmark` auto-launches it with graceful offline fallback and untrusted-output validation
 
 ## Phase Details
@@ -81,16 +81,18 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 ### Phase 5: Resumable Sweep, Report & Winner Selection
 
-**Goal**: Interrupted sweeps can be resumed without re-running completed models, a comparison report renders real results side-by-side, and winner selections are persisted atomically
+**Goal**: Interrupted sweeps can be resumed without re-running completed models, a comparison report renders real results side-by-side (including a cross-model transcript divergence view that makes transcription errors easy to spot), and winner selections are persisted atomically
 **Depends on**: Phase 4
-**Requirements**: RESUME-01, RESUME-02, RPT-01, RPT-02, RPT-03
+**Requirements**: BENCH-09, RESUME-01, RESUME-02, RPT-01, RPT-02, RPT-03, RPT-04, RPT-05
 **Success Criteria** (what must be TRUE):
 
   1. Killing a sweep mid-run (Ctrl-C) leaves a partial-results file; restarting with the same run directory skips all already-completed model/stage pairs and continues from where it stopped
   2. After a complete sweep, a markdown `report.md` exists in the results directory showing speed, memory, fit status, and an output excerpt for each model per stage
   3. The same results render as a terminal ASCII table immediately after the sweep finishes — no separate command required
-  4. The user can select a winning model per stage (or choose "keep current") via an interactive prompt after reading the report; the choice is written to `config/settings.conf`
-  5. A Ctrl-C during the `settings.conf` write leaves the file either fully written or absent — never a partial/corrupt file
+  4. Before the transcription-stage winner prompt, the user sees a divergence view: every line where the candidate transcripts disagree is shown in full with each model's variant labeled, plus a per-model outlier count, so it is immediately clear where the models diverge and which produced the fewest disagreements (the tool never auto-picks a winner)
+  5. The user can select a winning model per stage (or choose "keep current") via an interactive prompt after reading the report; the choice is written to `config/settings.conf`
+  6. A Ctrl-C during the `settings.conf` write leaves the file either fully written or absent — never a partial/corrupt file
+  7. The pre-download disk-space gate counts a present-but-incomplete model (one the pre-fetch loop will re-download) toward the required-space estimate — verified by a model with only an index file present being included in the gate's total rather than skipped as "cached"
 
 **Plans**: TBD
 
