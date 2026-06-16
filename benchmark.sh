@@ -838,7 +838,7 @@ while IFS='|' read -r model_id label size_gb; do
             "$SAMPLE_MP3" \
             "$RUN_DIR/whisper/${label}_result.json" \
             "$RUN_DIR/whisper" \
-            ""
+            "" </dev/null   # sever subprocess stdin from the candidate pipe (ffmpeg/MLX must not eat the next line)
 
         # Record successful candidate in list file for select_best
         # Extract output_file and metrics from the written JSON via Python
@@ -916,7 +916,7 @@ while IFS='|' read -r model_id label size_gb; do
             "$SELECTED_TRANSCRIPT" \
             "$RUN_DIR/cleanup/${label}_result.json" \
             "$RUN_DIR/cleanup" \
-            ""
+            "" </dev/null   # sever subprocess stdin from the candidate pipe
 
         if [ -f "$RUN_DIR/cleanup/${label}_result.json" ]; then
             CAND_ERROR=$("$PYTHON" -c "
@@ -993,7 +993,7 @@ while IFS='|' read -r model_id label size_gb; do
             "$SELECTED_CLEANED" \
             "$RUN_DIR/summarize/${label}_result.json" \
             "$RUN_DIR/summarize" \
-            "--style blog"
+            "--style blog" </dev/null   # sever subprocess stdin from the candidate pipe
 
         if [ -f "$RUN_DIR/summarize/${label}_result.json" ]; then
             CAND_ERROR=$("$PYTHON" -c "
