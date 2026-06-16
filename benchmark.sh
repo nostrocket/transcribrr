@@ -327,6 +327,19 @@ params_for_id() {
     return 0
 }
 
+# ── is_incomplete: membership test for INCOMPLETE_IDS (MA2-02) ────────────────
+# Models that stayed incomplete after the pre-fetch (re)download are skipped at
+# sweep time rather than attempted and failed at model-load. Bash 3.2: linear
+# scan (no associative arrays); set -u safe expansion for the empty-array case.
+# INCOMPLETE_IDS is populated by the pre-fetch loop, which runs before any sweep.
+is_incomplete() {
+    local want="$1" m
+    for m in ${INCOMPLETE_IDS[@]+"${INCOMPLETE_IDS[@]}"}; do
+        [ "$m" = "$want" ] && return 0
+    done
+    return 1
+}
+
 # ── Fit gate — classify each candidate as fit/skip (HW-02/03, D-07) ─────────
 # estimate = size_gb + BENCH_OVERHEAD_BUFFER_GB; compare <= USABLE_GB via awk.
 # NEVER use (( )) for float comparison — bash 3.2 integer-only.
@@ -987,6 +1000,16 @@ done < <(parse_candidates "whisper" "$CANDIDATES_CONF")
 stage_banner "Benchmark: whisper (1 of 3) — ${WHISPER_CANDIDATE_COUNT} fitting candidates"
 
 while IFS='|' read -r model_id label size_gb; do
+    # MA2-02: a model left incomplete after the pre-fetch (re)download cannot load
+    # — skip here rather than waste a run slot + thermal cooldown on a guaranteed
+    # failure. Matches the pre-fetch warning that incomplete models are skipped.
+    if is_incomplete "$model_id"; then
+        echo "  SKIP $label: incomplete (failed shard verification, not downloadable)"
+        write_skip_json "$model_id" "$label" "whisper" "incomplete: failed shard verification" \
+            "$RUN_DIR/whisper/${label}_result.json"
+        continue
+    fi
+
     CANDIDATE_FIT=$(fit_check "$size_gb")
 
     if [ "$CANDIDATE_FIT" = "skip" ]; then
@@ -1065,6 +1088,14 @@ done < <(parse_candidates "cleanup" "$CANDIDATES_CONF")
 stage_banner "Benchmark: cleanup (2 of 3) — ${CLEANUP_CANDIDATE_COUNT} fitting candidates"
 
 while IFS='|' read -r model_id label size_gb; do
+    # MA2-02: skip models left incomplete after pre-fetch (see whisper loop note).
+    if is_incomplete "$model_id"; then
+        echo "  SKIP $label: incomplete (failed shard verification, not downloadable)"
+        write_skip_json "$model_id" "$label" "cleanup" "incomplete: failed shard verification" \
+            "$RUN_DIR/cleanup/${label}_result.json"
+        continue
+    fi
+
     CANDIDATE_FIT=$(fit_check "$size_gb")
 
     if [ "$CANDIDATE_FIT" = "skip" ]; then
@@ -1141,6 +1172,14 @@ done < <(parse_candidates "summarize" "$CANDIDATES_CONF")
 stage_banner "Benchmark: summarize (3 of 3) — ${SUMMARIZE_CANDIDATE_COUNT} fitting candidates"
 
 while IFS='|' read -r model_id label size_gb; do
+    # MA2-02: skip models left incomplete after pre-fetch (see whisper loop note).
+    if is_incomplete "$model_id"; then
+        echo "  SKIP $label: incomplete (failed shard verification, not downloadable)"
+        write_skip_json "$model_id" "$label" "summarize" "incomplete: failed shard verification" \
+            "$RUN_DIR/summarize/${label}_result.json"
+        continue
+    fi
+
     CANDIDATE_FIT=$(fit_check "$size_gb")
 
     if [ "$CANDIDATE_FIT" = "skip" ]; then
