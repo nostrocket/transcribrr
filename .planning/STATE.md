@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-14)
 Phase: 04 (benchmark-engine-core) — EXECUTING
 Plan: 4 of 4
 Status: Phase complete — ready for verification
-Last activity: 2026-06-15
+Last activity: 2026-06-16 - Completed quick task 260616-ma2: benchmark.sh model shard verification + detail tables
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -91,6 +91,7 @@ None yet.
 | 260616-dur | Fix benchmark.sh audio-duration abort — tolerate ffmpeg -i non-zero exit under set -e/pipefail (gsd-fast) | 2026-06-16 | 24d21c4 | — |
 | 260616-std | Fix model-id truncation — run_candidate stdin from /dev/null so ffmpeg/MLX don't eat the candidate-loop pipe (gsd-fast) | 2026-06-16 | 8b889a2 | — |
 | 260616-sel | Fix invisible select_best menu (stderr) showing transcript number+path; silence verbose per-candidate stage output (gsd-fast) | 2026-06-16 | cee7cb3 | — |
+| 260616-ma2 | benchmark.sh: real shard-completeness verification (verify_model_complete), re-download+re-verify incomplete models, skip persistently-incomplete in sweeps, per-stage model detail table (id/params/quant/disk/mem) | 2026-06-16 | 11ad2b5 | [260616-ma2-benchmark-sh-verify-model-shard-complete](./quick/260616-ma2-benchmark-sh-verify-model-shard-complete/) |
 
 ## Deferred Items
 
