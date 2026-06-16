@@ -372,8 +372,12 @@ fi
 CURRENT_STAGE="audio-duration"
 
 ensure_dep ffmpeg ffmpeg
-DURATION_STR=$(ffmpeg -i "$SAMPLE_MP3" 3>&1 1>/dev/null 2>&3 3>&- | grep "Duration" | awk '{print $2}' | tr -d ,)
-IFS=: read h m s <<< "$DURATION_STR"
+DURATION_STR=$(ffmpeg -i "$SAMPLE_MP3" 3>&1 1>/dev/null 2>&3 3>&- | grep "Duration" | awk '{print $2}' | tr -d , || true)  # ffmpeg -i with no output exits non-zero by design — don't let pipefail/set -e abort
+if [ -z "$DURATION_STR" ]; then
+    echo "Error: could not read audio duration from $SAMPLE_MP3" >&2
+    exit 1
+fi
+IFS=: read -r h m s <<< "$DURATION_STR"
 AUDIO_DURATION_S=$(echo "$h * 3600 + $m * 60 + $s" | LC_NUMERIC=C bc)
 echo "Audio duration: $DURATION_STR (${AUDIO_DURATION_S%.*} seconds)"
 
