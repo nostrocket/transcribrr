@@ -114,6 +114,26 @@ setup_venv() {
 
 setup_venv   # MUST be first action after TTY check — .venv/bin/hf needed for pre-fetch
 
+# ── Hugging Face token resolution — higher rate limits + faster downloads ─────
+# Prefer an already-exported HF_TOKEN; otherwise read it from ~/.zshrc so the
+# token is always used even when benchmark.sh runs from a shell that never
+# sourced the profile (cron, `sh -c ...`, a fresh non-interactive shell). The hf
+# CLI reads HF_TOKEN from the environment, so exporting it here is all it needs.
+CURRENT_STAGE="hf-auth"
+if [ -z "${HF_TOKEN:-}" ] && [ -f "$HOME/.zshrc" ]; then
+    _tok=$(grep -E '^[[:space:]]*export[[:space:]]+HF_TOKEN=' "$HOME/.zshrc" | tail -1 || true)  # no match must not trip set -e/pipefail
+    _tok=${_tok#*=}            # drop up to the first '='
+    _tok=${_tok%\"}; _tok=${_tok#\"}   # strip surrounding double quotes
+    _tok=${_tok%\'}; _tok=${_tok#\'}   # strip surrounding single quotes
+    if [ -n "$_tok" ]; then HF_TOKEN=$_tok; export HF_TOKEN; fi
+    unset _tok
+fi
+if [ -n "${HF_TOKEN:-}" ]; then
+    echo "Hugging Face: HF_TOKEN detected — authenticated downloads (higher rate limits)."
+else
+    echo "Please set a HF_TOKEN to enable higher rate limits and faster downloads" >&2
+fi
+
 # ── ensure_dep: auto-install or hint for a missing system dependency ──────────
 # Usage: ensure_dep <command> <brew-formula>
 # Returns 0 if the command is available (after install if needed), 1 on failure.
