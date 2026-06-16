@@ -94,7 +94,15 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   6. A Ctrl-C during the `settings.conf` write leaves the file either fully written or absent — never a partial/corrupt file
   7. The pre-download disk-space gate counts a present-but-incomplete model (one the pre-fetch loop will re-download) toward the required-space estimate — verified by a model with only an index file present being included in the gate's total rather than skipped as "cached"
 
-**Plans**: TBD
+**Plans**: 3 plans
+**Wave 1** *(parallel — disjoint files)*
+
+- [ ] 05-01-PLAN.md — benchmark_helpers.py: divergence view (difflib alignment + majority-consensus outliers + textwrap columns) and report (terminal table + report.md) (RPT-01, RPT-04, RPT-05)
+- [ ] 05-02-PLAN.md — benchmark.sh building blocks: BENCH-09 disk-gate fix, resume primitives (detect_incomplete_run/should_skip_pair/persist_pick/load_picks), atomic write_settings_key, select_best keep-current (BENCH-09, RESUME-01/02, RPT-02/03)
+
+**Wave 2** *(blocked on 05-01 + 05-02)*
+
+- [ ] 05-03-PLAN.md — benchmark.sh wiring: resume RUN_DIR branch + skip loop, pre-whisper divergence view, per-stage persist + atomic settings write, post-sweep report; human-verify on real TTY (RESUME-01/02, RPT-01..05)
 
 ### Phase 6: Claude Skill — Candidate Refresh
 
@@ -120,5 +128,5 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
 | 4. Benchmark Engine Core | v2.0 | 4/4 | Complete   | 2026-06-15 |
-| 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/TBD | Not started | - |
+| 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/3 | Not started | - |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
