@@ -234,6 +234,99 @@ is_model_cached() {
     [ -d "$snapshots_dir" ] && [ -n "$(ls -A "$snapshots_dir" 2>/dev/null)" ]
 }
 
+# ── verify_model_complete: real shard-completeness check (MA2-01) ─────────────
+# is_model_cached() only proves the snapshots dir is non-empty; a model with just
+# model.safetensors.index.json (no shard blobs) passes it falsely. This verifies
+# every shard listed in the index weight_map exists as a non-zero resolved blob,
+# or — for single-file models — that a non-zero weight file is present.
+# Returns 0 (complete) / 1 (incomplete). Gates on exit code, not stdout.
+
+verify_model_complete() {
+    local model_id="$1"
+    local cache_name="models--$(echo "$model_id" | sed 's|/|--|g')"
+    local snapshots_dir="$HF_CACHE/$cache_name/snapshots"
+    [ -d "$snapshots_dir" ] && [ -n "$(ls -A "$snapshots_dir" 2>/dev/null)" ] || return 1
+
+    local snap
+    snap=$(ls -1d "$snapshots_dir"/*/ 2>/dev/null | head -1)
+    [ -n "$snap" ] && [ -d "$snap" ] || return 1
+    snap="${snap%/}"
+
+    if [ -f "$snap/model.safetensors.index.json" ]; then
+        # Index present → every weight_map shard must exist with non-zero resolved size.
+        # python3 is guaranteed via .venv ($PYTHON). Continue-on-failure (D-16): any
+        # python error defaults to "incomplete".
+        local probe rc
+        set +e
+        probe=$("$PYTHON" - "$snap" <<'PY' 2>/dev/null
+import json, os, sys
+snap = sys.argv[1]
+try:
+    with open(os.path.join(snap, "model.safetensors.index.json")) as f:
+        idx = json.load(f)
+    shards = sorted(set((idx.get("weight_map") or {}).values()))
+    if not shards:
+        print("incomplete")
+        sys.exit(0)
+    for s in shards:
+        p = os.path.join(snap, s)
+        # os.path.getsize follows the symlink into the blobs store.
+        if not os.path.exists(p) or os.path.getsize(p) <= 0:
+            sys.stderr.write("missing shard: %s\n" % s)
+            print("incomplete")
+            sys.exit(0)
+    print("complete")
+except Exception as e:
+    sys.stderr.write("verify error: %s\n" % e)
+    print("incomplete")
+PY
+)
+        rc=$?
+        set -e
+        if [ "$rc" -ne 0 ] || [ "$probe" != "complete" ]; then
+            return 1
+        fi
+        return 0
+    fi
+
+    # No index → single-file model. Require a non-zero weight file (-s follows symlink).
+    local f
+    for f in "$snap"/*.safetensors "$snap"/weights.npz "$snap"/*.npz; do
+        [ -s "$f" ] && return 0
+    done
+    return 1
+}
+
+# ── params_for_id: block-aware params= lookup from candidates.conf (MA2-04) ────
+# Same while-read/case idiom as parse_candidates (parse-not-source). Echoes the
+# params value for the matching id, or "?" if unknown. Never trips set -e.
+
+params_for_id() {
+    local want_id="$1"
+    local current_id="" current_params=""
+    local in_block=false line
+    while IFS= read -r line; do
+        case "$line" in
+            "[candidate]")
+                if [ "$in_block" = true ] && [ "$current_id" = "$want_id" ]; then
+                    echo "$current_params"; return 0
+                fi
+                in_block=true
+                current_id="" current_params=""
+                ;;
+            id=*)     current_id="${line#id=}" ;;
+            params=*) current_params="${line#params=}" ;;
+            "#"*|"")  : ;;
+        esac
+    done < "$CANDIDATES_CONF"
+    # Emit-last-block stanza (Pitfall E): the final candidate must not be dropped.
+    if [ "$in_block" = true ] && [ "$current_id" = "$want_id" ]; then
+        echo "$current_params"; return 0
+    fi
+    echo "?"
+    return 0
+}
+
 # ── Fit gate — classify each candidate as fit/skip (HW-02/03, D-07) ─────────
 # estimate = size_gb + BENCH_OVERHEAD_BUFFER_GB; compare <= USABLE_GB via awk.
 # NEVER use (( )) for float comparison — bash 3.2 integer-only.
