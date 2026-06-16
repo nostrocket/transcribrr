@@ -86,6 +86,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260614-uhd | Auto-install missing deps (yt-dlp, ffmpeg) via Homebrew in preflight, with --no-install opt-out | 2026-06-14 | d8701a5 | [260614-uhd-auto-install-deps](./quick/260614-uhd-auto-install-deps/) |
 | 260615-1ek | Auto-install mlx-whisper into .venv on first run via setup_venv in transcribe.sh | 2026-06-15 | 998c43c | [260615-1ek-auto-install-mlx-whisper-into-venv-on-fi](./quick/260615-1ek-auto-install-mlx-whisper-into-venv-on-fi/) |
+| 260616-tty | Fix benchmark.sh Ctrl+C/SIGTERM — INT/TERM traps now exit instead of swallowing the signal (gsd-fast) | 2026-06-16 | aab6fee | — |
 
 ## Deferred Items
 
