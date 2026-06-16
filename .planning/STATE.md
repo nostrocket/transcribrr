@@ -89,6 +89,7 @@ None yet.
 | 260616-tty | Fix benchmark.sh Ctrl+C/SIGTERM — INT/TERM traps now exit instead of swallowing the signal (gsd-fast) | 2026-06-16 | aab6fee | — |
 | 260616-hft | benchmark.sh resolves HF_TOKEN from ~/.zshrc when env-unset; emits notice when no token (gsd-fast) | 2026-06-16 | ddd91cd | — |
 | 260616-dur | Fix benchmark.sh audio-duration abort — tolerate ffmpeg -i non-zero exit under set -e/pipefail (gsd-fast) | 2026-06-16 | 24d21c4 | — |
+| 260616-std | Fix model-id truncation — run_candidate stdin from /dev/null so ffmpeg/MLX don't eat the candidate-loop pipe (gsd-fast) | 2026-06-16 | 8b889a2 | — |
 
 ## Deferred Items
 
