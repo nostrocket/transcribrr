@@ -601,7 +601,7 @@ run_candidate() {
                 --model "$model_id" $STAGE_EXTRA
             printf '%s' "$?" > "$TIME_EXIT_FILE"
         ) 2>"$TIME_OUT" \
-        | tee "$STDOUT_TMP" /dev/stderr \
+        | tee "$STDOUT_TMP" \
         | { grep "^OUTPUT_FILE=" || true; }
     )
     set -e
@@ -728,29 +728,27 @@ select_best() {
         exit 1
     fi
 
-    echo ""
-    echo "  Stage '$stage' complete. ${count} candidate(s) available. Select the best output:"
+    # Menu + prompt go to STDERR so they reach the terminal — this function's STDOUT
+    # is captured by the caller's $(...) and must contain ONLY the selected file path.
+    echo "" >&2
+    echo "  ── ${stage} stage: ${count} transcript(s) ──────────────────────────────" >&2
+    echo "  Open the files below to compare, then choose the best:" >&2
+    echo "" >&2
 
-    # Display numbered menu with metrics + excerpt (BENCH-05 — real output shown to human)
+    # Numbered menu: number, label + metrics, and the transcript LOCATION (one per line)
     local i=0
     while IFS='|' read -r cand_label cand_output cand_speed cand_peak; do
         i=$((i + 1))
-        printf "\n  [%d] %s\n" "$i" "$cand_label"
-        printf "      Speed: %s   Peak memory: %s GB\n" "$cand_speed" "$cand_peak"
-        echo "      --- excerpt (first 10 lines) ---"
-        if [ -f "$cand_output" ]; then
-            head -10 "$cand_output" | sed 's/^/      /'
-        else
-            echo "      (output file not found: $cand_output)"
-        fi
+        printf "  [%d] %-22s  %s   peak %s GB\n" "$i" "$cand_label" "$cand_speed" "$cand_peak" >&2
+        printf "      %s\n" "$cand_output" >&2
     done < "$list_file"
 
-    echo ""
+    echo "" >&2
 
     # Validation loop — re-prompt on invalid input (T-04-13)
     local selection
     while true; do
-        printf "  Enter number (1-%d): " "$count"
+        printf "  Select the best [1-%d]: " "$count" >&2
         read -r selection
 
         # Format check: must be one or more digits, nothing else
