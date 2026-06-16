@@ -88,6 +88,7 @@ None yet.
 | 260615-1ek | Auto-install mlx-whisper into .venv on first run via setup_venv in transcribe.sh | 2026-06-15 | 998c43c | [260615-1ek-auto-install-mlx-whisper-into-venv-on-fi](./quick/260615-1ek-auto-install-mlx-whisper-into-venv-on-fi/) |
 | 260616-tty | Fix benchmark.sh Ctrl+C/SIGTERM — INT/TERM traps now exit instead of swallowing the signal (gsd-fast) | 2026-06-16 | aab6fee | — |
 | 260616-hft | benchmark.sh resolves HF_TOKEN from ~/.zshrc when env-unset; emits notice when no token (gsd-fast) | 2026-06-16 | ddd91cd | — |
+| 260616-dur | Fix benchmark.sh audio-duration abort — tolerate ffmpeg -i non-zero exit under set -e/pipefail (gsd-fast) | 2026-06-16 | 24d21c4 | — |
 
 ## Deferred Items
 
