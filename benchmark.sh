@@ -42,12 +42,16 @@ BENCH_COOLDOWN_SECS=45       # D-14: 45 s default within 30–60 s range
 CURRENT_STAGE="init"
 trap 'echo "Error: benchmark.sh failed during: $CURRENT_STAGE" >&2' ERR
 
-# WR-04 fix: EXIT trap to clean up known temp files on SIGINT, SIGTERM, or any exit.
-# Composes safely with the ERR trap above — does not touch CURRENT_STAGE.
+# WR-04 fix: EXIT trap cleans up known temp files on any exit.
 # Files are registered into _BENCH_TMPFILES as they are allocated.
+# Signal handlers (INT/TERM) must EXIT — not just clean up — otherwise bash runs
+# the handler and RESUMES the script, swallowing Ctrl+C. `exit` then fires the EXIT
+# trap, so cleanup still runs exactly once. Exit codes follow 128+signal convention.
 _BENCH_TMPFILES=()
-_bench_cleanup() { rm -f "${_BENCH_TMPFILES[@]}" 2>/dev/null; }
-trap '_bench_cleanup' EXIT INT TERM
+_bench_cleanup() { [ ${#_BENCH_TMPFILES[@]} -gt 0 ] && rm -f "${_BENCH_TMPFILES[@]}" 2>/dev/null; return 0; }
+trap '_bench_cleanup' EXIT
+trap 'exit 130' INT     # Ctrl+C  → 128 + SIGINT(2)
+trap 'exit 143' TERM    # SIGTERM → 128 + SIGTERM(15)
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
