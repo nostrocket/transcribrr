@@ -99,10 +99,18 @@ Options:
 
   --help, -h              Show this help message and exit
 
+Notes:
+  Always QUOTE YouTube URLs. In zsh (the macOS default shell) the '?' and '&'
+  in a URL are glob / job-control characters, so an unquoted URL fails with
+  "zsh: no matches found: ..." before this script ever runs — the shell aborts
+  the command, so the error cannot come from transcribrr.sh itself. Quoting
+  avoids it in every shell:
+      ./transcribrr.sh "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
 Examples:
-  transcribrr.sh https://www.youtube.com/watch?v=dQw4w9WgXcQ
-  transcribrr.sh https://youtu.be/dQw4w9WgXcQ --summary-style detailed
-  transcribrr.sh https://www.youtube.com/watch?v=dQw4w9WgXcQ --whisper-model turbo --no-cleanup
+  transcribrr.sh "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  transcribrr.sh "https://youtu.be/dQw4w9WgXcQ" --summary-style detailed
+  transcribrr.sh "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --whisper-model turbo --no-cleanup
   transcribrr.sh talk.mp3
   transcribrr.sh talk.mp3 --whisper-model turbo --summary-style detailed
   transcribrr.sh talk.mp3 --no-cleanup --summary-model Qwen2.5-7B-4bit
@@ -174,6 +182,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# ── No-argument invocation → show help ───────────────────────────────────────
+# A bare `transcribrr.sh` (no input and not --benchmark) has nothing to do, so
+# treat it like a help request: print usage (which includes the URL-quoting
+# note) and exit cleanly. --benchmark needs no positional input (it uses its
+# own sample), so it is exempt.
+if [ -z "$INPUT_ARG" ] && [ "$BENCHMARK_MODE" != true ]; then
+    print_help
+    exit 0
+fi
 
 # ── settings.conf — read model defaults (flag > settings.conf > built-in) ────
 # D-07/D-08: read once, after flag parsing, before preflight.
