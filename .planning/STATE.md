@@ -88,6 +88,7 @@ None yet.
 | 260614-uhd | Auto-install missing deps (yt-dlp, ffmpeg) via Homebrew in preflight, with --no-install opt-out | 2026-06-14 | d8701a5 | [260614-uhd-auto-install-deps](./quick/260614-uhd-auto-install-deps/) |
 | 260615-1ek | Auto-install mlx-whisper into .venv on first run via setup_venv in transcribe.sh | 2026-06-15 | 998c43c | [260615-1ek-auto-install-mlx-whisper-into-venv-on-fi](./quick/260615-1ek-auto-install-mlx-whisper-into-venv-on-fi/) |
 | 260616-tty | Fix benchmark.sh Ctrl+C/SIGTERM — INT/TERM traps now exit instead of swallowing the signal (gsd-fast) | 2026-06-16 | aab6fee | — |
+| 260617-hlp | Print help on no-arg invocation; document quoting URLs in zsh ('?'/'&' glob abort before script runs) (gsd-fast) | 2026-06-17 | e50eb10 | — |
 | 260616-hft | benchmark.sh resolves HF_TOKEN from ~/.zshrc when env-unset; emits notice when no token (gsd-fast) | 2026-06-16 | ddd91cd | — |
 | 260616-dur | Fix benchmark.sh audio-duration abort — tolerate ffmpeg -i non-zero exit under set -e/pipefail (gsd-fast) | 2026-06-16 | 24d21c4 | — |
 | 260616-std | Fix model-id truncation — run_candidate stdin from /dev/null so ffmpeg/MLX don't eat the candidate-loop pipe (gsd-fast) | 2026-06-16 | 8b889a2 | — |
