@@ -112,3 +112,4 @@ Resume file: None (phase complete)
 ## Operator Next Steps
 
 - Start Phase 3 with `/gsd-plan-phase 3`
+| 12 | Ensure deno JS runtime on PATH for yt-dlp YouTube extraction | 2026-06-17 | 6742705 | — |
