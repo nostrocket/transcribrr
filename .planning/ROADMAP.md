@@ -25,7 +25,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 - [x] **Phase 3: Candidate Config & Pipeline Settings Integration** - Candidate format defined, vetted initial list ships, and the normal pipeline reads a settings file with correct three-tier precedence (completed 2026-06-14)
 - [x] **Phase 4: Benchmark Engine Core** - Hardware-aware sweep runs each fitting candidate in its own subprocess with warm-up, captures real speed/memory/output metrics, and shows live progress (completed 2026-06-15)
-- [ ] **Phase 5: Resumable Sweep, Report & Winner Selection** - Sweep survives interruption, a comparison report surfaces real per-model results (including a cross-model transcript divergence view), the disk-space gate counts incomplete-but-present models, and winner choices are written atomically to settings
+- [x] **Phase 5: Resumable Sweep, Report & Winner Selection** - Sweep survives interruption, a comparison report surfaces real per-model results (including a cross-model transcript divergence view), the disk-space gate counts incomplete-but-present models, and winner choices are written atomically to settings (completed 2026-06-17)
 - [ ] **Phase 6: Claude Skill — Candidate Refresh** - A Claude Code skill researches and writes `candidates.conf`; `--benchmark` auto-launches it with graceful offline fallback and untrusted-output validation
 
 ## Phase Details
@@ -102,7 +102,7 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 **Wave 2** *(blocked on 05-01 + 05-02)*
 
-- [ ] 05-03-PLAN.md — benchmark.sh wiring: resume RUN_DIR branch + skip loop, pre-whisper divergence view, per-stage persist + atomic settings write, post-sweep report; human-verify on real TTY (RESUME-01/02, RPT-01..05)
+- [x] 05-03-PLAN.md — benchmark.sh wiring: resume RUN_DIR branch + skip loop, pre-whisper divergence view, per-stage persist + atomic settings write, post-sweep report; human-verified on real TTY (RESUME-01/02, RPT-01..05)
 
 ### Phase 6: Claude Skill — Candidate Refresh
 
@@ -128,5 +128,5 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
 | 4. Benchmark Engine Core | v2.0 | 4/4 | Complete   | 2026-06-15 |
-| 5. Resumable Sweep, Report & Winner Selection | v2.0 | 2/3 | In Progress|  |
+| 5. Resumable Sweep, Report & Winner Selection | v2.0 | 3/3 | Complete   | 2026-06-17 |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |
