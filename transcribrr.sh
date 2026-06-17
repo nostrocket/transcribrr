@@ -363,7 +363,30 @@ preflight_check() {
             # (missing formats) rather than failing. Ask yt-dlp itself (no
             # network: --simulate with no URL just prints the debug header) and
             # hint an upgrade instead of guessing a version threshold that rots.
-            js_runtime_line=$(yt-dlp -v --simulate 2>&1 | grep -i "JS runtimes:" | head -1)
+            #
+            # ROBUSTNESS (silent-exit-after-models): this probe is a best-effort
+            # WARNING and must NEVER abort the pipeline. Three hazards combine
+            # under the script's `set -euo pipefail`:
+            #   1. `yt-dlp -v --simulate` with no URL exits 2 ("You must provide
+            #      at least one URL"). With `pipefail`, that 2 becomes the
+            #      pipeline's exit status even though grep/head succeed.
+            #   2. `head -1` (or `grep -m1`) closes the pipe after the first line,
+            #      sending SIGPIPE (141) to yt-dlp — another non-zero source, and
+            #      a race that intermittently drops the captured value.
+            #   3. `set -e` then aborts at this command substitution — and because
+            #      it runs inside a function with no `-E`/errtrace, the ERR trap
+            #      (line 36) does NOT fire on stock macOS /bin/bash 3.2, so the
+            #      script exits SILENTLY (the reported bug).
+            # Fix: run the pipeline in the command-substitution subshell with
+            # pipefail DISABLED (`set +o pipefail` — scoped to the subshell, the
+            # parent's pipefail is untouched) so the pipeline's exit reflects the
+            # last command. grep reads to EOF (no `-m1`/`head`) so yt-dlp never
+            # gets SIGPIPE; `tail -1` takes the single JS-runtimes line and is the
+            # last command (exit 0 on match). `|| true` covers the no-match case.
+            # The probe can no longer abort the pipeline, while the unsupported-
+            # deno warning below still fires when the line is captured.
+            js_runtime_line=""
+            js_runtime_line=$(set +o pipefail; yt-dlp -v --simulate 2>&1 | grep -i "JS runtimes:" | tail -1 || true)
             if echo "$js_runtime_line" | grep -qiE "deno-[^ ]+ \(unsupported\)"; then
                 echo "Warning: yt-dlp considers your deno too old for YouTube extraction; some formats may be missing." >&2
                 echo "    ${js_runtime_line#*\] }" >&2
