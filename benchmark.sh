@@ -432,6 +432,43 @@ load_picks() {
     fi
 }
 
+# ── Resume winner-label re-derivation (CR-03) ─────────────────────────────────
+#
+# winner_label_for_output(stage, output_file): echo the friendly candidate label
+# whose result JSON in $RUN_DIR/<stage>/ has the matching output_file, or "".
+#
+# On resume the per-stage results-list temp file (which mapped label→path) is
+# gone, so picks.json only knows the WINNER PATH. The durable source of truth
+# for the path→label mapping is the per-candidate *_result.json files still on
+# disk in the run dir. Read them (parse-not-source; A1 sys.argv pattern, never
+# interpolate the path into Python source — same defect class as CR-02).
+winner_label_for_output() {
+    local stage="$1"
+    local want_output="$2"
+    local stage_dir="$RUN_DIR/$stage"
+    [ -n "$want_output" ] && [ -d "$stage_dir" ] || { echo ""; return 0; }
+    "$PYTHON" - "$stage_dir" "$want_output" << 'PYEOF' 2>/dev/null || echo ""
+import json, os, sys
+stage_dir, want_output = sys.argv[1], sys.argv[2]
+label = ""
+try:
+    for fname in sorted(os.listdir(stage_dir)):
+        if not fname.endswith("_result.json"):
+            continue
+        try:
+            with open(os.path.join(stage_dir, fname)) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        if d.get("output_file") == want_output:
+            label = d.get("label") or d.get("candidate_id") or ""
+            break
+except Exception:
+    label = ""
+print(label)
+PYEOF
+}
+
 # ── Atomic settings.conf writer (RPT-03, D-07/D-08/D-10, T-05-01/T-05-02) ────
 #
 # write_settings_key(key, value): atomically update one key in config/settings.conf.
@@ -1351,6 +1388,19 @@ done < <(parse_candidates "whisper" "$CANDIDATES_CONF")
 if [ "$RESUMING" = true ] && [ -n "$SELECTED_TRANSCRIPT" ]; then
     echo "  (Resume) whisper pick already recorded: $SELECTED_TRANSCRIPT" >&2
     rm -f "$WHISPER_RESULTS_LIST"
+    # CR-03: reconcile settings.conf on resume. write_settings_key only ran in
+    # the else-branch originally, so a winner picked before an interruption never
+    # reached config/settings.conf. Re-derive the friendly label from the result
+    # JSONs and persist it — UNLESS the user had chosen keep-current (durable
+    # marker below), in which case settings must be left untouched (D-08).
+    if [ -f "$RUN_DIR/.keep_current_whisper.persisted" ]; then
+        echo "  (Resume) whisper kept current default — settings.conf untouched." >&2
+    else
+        _WHISPER_WINNER_LABEL=$(winner_label_for_output "whisper" "$SELECTED_TRANSCRIPT")
+        if [ -n "$_WHISPER_WINNER_LABEL" ]; then
+            write_settings_key WHISPER_MODEL_DEFAULT "$_WHISPER_WINNER_LABEL"
+        fi
+    fi
 else
     # Divergence view (RPT-04/05): BEFORE select_best, reads list BEFORE rm -f.
     # >&2 mandatory — stdout must stay clean for select_best capture (T-05-08/Pitfall 2).
@@ -1374,8 +1424,12 @@ else
     persist_pick "whisper" "$SELECTED_TRANSCRIPT"
     if [ -f "$RUN_DIR/.keep_current_whisper" ]; then
         rm -f "$RUN_DIR/.keep_current_whisper"
-        # keep-current: do NOT write settings.conf (D-08)
+        # keep-current: do NOT write settings.conf (D-08). Drop a DURABLE marker
+        # so a later resume also knows not to overwrite settings (CR-03).
+        touch "$RUN_DIR/.keep_current_whisper.persisted"
     else
+        # New pick: clear any stale durable keep-current marker so resume reconciles.
+        rm -f "$RUN_DIR/.keep_current_whisper.persisted"
         # New pick: write friendly label atomically to settings.conf (D-10)
         if [ -n "$_WHISPER_WINNER_LABEL" ]; then
             write_settings_key WHISPER_MODEL_DEFAULT "$_WHISPER_WINNER_LABEL"
@@ -1473,6 +1527,15 @@ done < <(parse_candidates "cleanup" "$CANDIDATES_CONF")
 if [ "$RESUMING" = true ] && [ -n "$SELECTED_CLEANED" ]; then
     echo "  (Resume) cleanup pick already recorded: $SELECTED_CLEANED" >&2
     rm -f "$CLEANUP_RESULTS_LIST"
+    # CR-03: reconcile settings.conf on resume (see whisper branch).
+    if [ -f "$RUN_DIR/.keep_current_cleanup.persisted" ]; then
+        echo "  (Resume) cleanup kept current default — settings.conf untouched." >&2
+    else
+        _CLEANUP_WINNER_LABEL=$(winner_label_for_output "cleanup" "$SELECTED_CLEANED")
+        if [ -n "$_CLEANUP_WINNER_LABEL" ]; then
+            write_settings_key CLEANUP_MODEL_DEFAULT "$_CLEANUP_WINNER_LABEL"
+        fi
+    fi
 else
     SELECTED_CLEANED=$(select_best "cleanup" "$CLEANUP_RESULTS_LIST" "$CURRENT_CLEANUP_DEFAULT")
     # Derive friendly label from list file BEFORE rm -f (D-10)
@@ -1482,8 +1545,11 @@ else
     persist_pick "cleanup" "$SELECTED_CLEANED"
     if [ -f "$RUN_DIR/.keep_current_cleanup" ]; then
         rm -f "$RUN_DIR/.keep_current_cleanup"
-        # keep-current: do NOT write settings.conf (D-08)
+        # keep-current: do NOT write settings.conf (D-08). Durable marker for resume (CR-03).
+        touch "$RUN_DIR/.keep_current_cleanup.persisted"
     else
+        # New pick: clear any stale durable keep-current marker so resume reconciles.
+        rm -f "$RUN_DIR/.keep_current_cleanup.persisted"
         # New pick: write friendly label atomically to settings.conf (D-10)
         if [ -n "$_CLEANUP_WINNER_LABEL" ]; then
             write_settings_key CLEANUP_MODEL_DEFAULT "$_CLEANUP_WINNER_LABEL"
@@ -1582,6 +1648,15 @@ done < <(parse_candidates "summarize" "$CANDIDATES_CONF")
 if [ "$RESUMING" = true ] && [ -n "$SELECTED_SUMMARY" ]; then
     echo "  (Resume) summarize pick already recorded: $SELECTED_SUMMARY" >&2
     rm -f "$SUMMARIZE_RESULTS_LIST"
+    # CR-03: reconcile settings.conf on resume (see whisper branch).
+    if [ -f "$RUN_DIR/.keep_current_summarize.persisted" ]; then
+        echo "  (Resume) summarize kept current default — settings.conf untouched." >&2
+    else
+        _SUMMARIZE_WINNER_LABEL=$(winner_label_for_output "summarize" "$SELECTED_SUMMARY")
+        if [ -n "$_SUMMARIZE_WINNER_LABEL" ]; then
+            write_settings_key SUMMARY_MODEL_DEFAULT "$_SUMMARIZE_WINNER_LABEL"
+        fi
+    fi
 else
     SELECTED_SUMMARY=$(select_best "summarize" "$SUMMARIZE_RESULTS_LIST" "$CURRENT_SUMMARY_DEFAULT")
     # Derive friendly label from list file BEFORE rm -f (D-10)
@@ -1591,8 +1666,11 @@ else
     persist_pick "summarize" "$SELECTED_SUMMARY"
     if [ -f "$RUN_DIR/.keep_current_summarize" ]; then
         rm -f "$RUN_DIR/.keep_current_summarize"
-        # keep-current: do NOT write settings.conf (D-08)
+        # keep-current: do NOT write settings.conf (D-08). Durable marker for resume (CR-03).
+        touch "$RUN_DIR/.keep_current_summarize.persisted"
     else
+        # New pick: clear any stale durable keep-current marker so resume reconciles.
+        rm -f "$RUN_DIR/.keep_current_summarize.persisted"
         # New pick: write friendly label atomically to settings.conf (D-10)
         if [ -n "$_SUMMARIZE_WINNER_LABEL" ]; then
             write_settings_key SUMMARY_MODEL_DEFAULT "$_SUMMARIZE_WINNER_LABEL"
