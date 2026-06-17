@@ -126,9 +126,11 @@ if [ -n "$MODEL_FLAG" ]; then
             small)    MODEL_SIZE="mlx-community/whisper-small-mlx"      ; MODEL_LABEL="small" ;;
             medium)   MODEL_SIZE="mlx-community/whisper-medium-mlx"     ; MODEL_LABEL="medium" ;;
             large-v3) MODEL_SIZE="mlx-community/whisper-large-v3-mlx"   ; MODEL_LABEL="large-v3" ;;
-            turbo)    MODEL_SIZE="mlx-community/whisper-large-v3-turbo" ; MODEL_LABEL="turbo" ;;
+            turbo)         MODEL_SIZE="mlx-community/whisper-large-v3-turbo"      ; MODEL_LABEL="turbo" ;;
+            turbo-4bit)    MODEL_SIZE="mlx-community/whisper-large-v3-turbo-q4"   ; MODEL_LABEL="turbo-4bit" ;;
+            distil-large-v3) MODEL_SIZE="mlx-community/distil-whisper-large-v3"  ; MODEL_LABEL="distil-large-v3" ;;
             *)
-                echo "Error: Unknown whisper model '$MODEL_FLAG'. Valid labels: tiny base small medium large-v3 turbo" >&2
+                echo "Error: Unknown whisper model '$MODEL_FLAG'. Valid labels: tiny base small medium large-v3 turbo turbo-4bit distil-large-v3" >&2
                 exit 1
                 ;;
         esac
