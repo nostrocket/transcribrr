@@ -349,6 +349,14 @@ preflight_check() {
     # Validate yt-dlp is available when processing a URL (DL-02, ROB-01); auto-install if needed
     if [ "$IS_URL" = true ]; then
         ensure_dep yt-dlp yt-dlp || errors=$((errors + 1))
+        # yt-dlp's YouTube extractor now requires a JS runtime (deno is the only
+        # one enabled by default); without it, extraction is deprecated and some
+        # formats go missing. deno's default install dir is frequently absent
+        # from a non-interactive PATH, so add it before the check.
+        if ! command -v deno &>/dev/null && [ -x "$HOME/.deno/bin/deno" ]; then
+            PATH="$HOME/.deno/bin:$PATH"
+        fi
+        ensure_dep deno deno || errors=$((errors + 1))
     fi
 
     if [ "$errors" -gt 0 ]; then
