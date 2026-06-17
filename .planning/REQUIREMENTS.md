@@ -29,20 +29,20 @@ Requirements for the Model Benchmarking & Auto-Selection milestone. Each maps to
 - [x] **BENCH-06**: The benchmark obtains a default audio sample by downloading it on first run and caching it locally, so runs are reproducible without bundling a file in the repo.
 - [x] **BENCH-07**: Missing benchmark dependencies (notably `mlx-whisper`, absent from `.venv`) are auto-installed as part of `--benchmark` setup, consistent with the existing auto-install-deps behavior.
 - [x] **BENCH-08**: Live progress is shown during the sweep (current model, stage, elapsed) so a long run is clearly not hung.
-- [ ] **BENCH-09**: The pre-download disk-space gate (`benchmark.sh:375`) measures required space using true shard-completeness (`verify_model_complete`), not mere directory presence (`is_model_cached`) — so a present-but-incomplete model that the pre-fetch loop will re-download is counted toward the space estimate, closing the gap where an index-only model (e.g. the index-only `Qwen3-14B`) is treated as cached yet still triggers a multi-GB re-download with no space check.
+- [x] **BENCH-09**: The pre-download disk-space gate (`benchmark.sh:375`) measures required space using true shard-completeness (`verify_model_complete`), not mere directory presence (`is_model_cached`) — so a present-but-incomplete model that the pre-fetch loop will re-download is counted toward the space estimate, closing the gap where an index-only model (e.g. the index-only `Qwen3-14B`) is treated as cached yet still triggers a multi-GB re-download with no space check.
 
 ### Resumable Sweep (RESUME)
 
-- [ ] **RESUME-01**: Partial results are persisted after each model completes, so an interrupted sweep is not lost.
-- [ ] **RESUME-02**: A resumed sweep skips model/stage pairs already completed and continues from where it stopped.
+- [x] **RESUME-01**: Partial results are persisted after each model completes, so an interrupted sweep is not lost.
+- [x] **RESUME-02**: A resumed sweep skips model/stage pairs already completed and continues from where it stopped.
 
 ### Report & Selection (RPT)
 
-- [ ] **RPT-01**: After the sweep, a comparison report shows real per-model/per-stage results (speed, memory, fit, output excerpt) as both a terminal table and a saved markdown file.
-- [ ] **RPT-02**: The user picks the winning model per stage from the report (no automated scoring); choosing "keep current" is allowed.
-- [ ] **RPT-03**: The chosen winners are written to a settings file via an atomic write (never a partial/corrupt file).
-- [ ] **RPT-04**: Before the transcription-stage winner prompt, the candidate transcripts are compared against each other and every line where the models' text diverges is shown in full, labeled by model, so the user can read the exact words each model produced at each point of disagreement (alignment-based, not a raw character diff that desyncs on timing/whitespace).
-- [ ] **RPT-05**: The divergence view summarizes, per model, how often that model was the outlier at a divergent line (disagreed with the majority of the others), presented so the user can rapidly judge which model likely produced the fewest transcription errors — descriptive divergence only, the tool never auto-picks a winner (human remains the judge, consistent with the no-automated-scoring stance).
+- [x] **RPT-01**: After the sweep, a comparison report shows real per-model/per-stage results (speed, memory, fit, output excerpt) as both a terminal table and a saved markdown file.
+- [x] **RPT-02**: The user picks the winning model per stage from the report (no automated scoring); choosing "keep current" is allowed.
+- [x] **RPT-03**: The chosen winners are written to a settings file via an atomic write (never a partial/corrupt file).
+- [x] **RPT-04**: Before the transcription-stage winner prompt, the candidate transcripts are compared against each other and every line where the models' text diverges is shown in full, labeled by model, so the user can read the exact words each model produced at each point of disagreement (alignment-based, not a raw character diff that desyncs on timing/whitespace).
+- [x] **RPT-05**: The divergence view summarizes, per model, how often that model was the outlier at a divergent line (disagreed with the majority of the others), presented so the user can rapidly judge which model likely produced the fewest transcription errors — descriptive divergence only, the tool never auto-picks a winner (human remains the judge, consistent with the no-automated-scoring stance).
 
 ### Pipeline Auto-Selection (CFG)
 
@@ -101,14 +101,14 @@ Explicitly excluded. Anti-features from research with reasoning.
 | BENCH-06 | Phase 4 | Complete |
 | BENCH-07 | Phase 4 | Complete |
 | BENCH-08 | Phase 4 | Complete |
-| BENCH-09 | Phase 5 | Pending |
-| RESUME-01 | Phase 5 | Pending |
-| RESUME-02 | Phase 5 | Pending |
-| RPT-01 | Phase 5 | Pending |
-| RPT-02 | Phase 5 | Pending |
-| RPT-03 | Phase 5 | Pending |
-| RPT-04 | Phase 5 | Pending |
-| RPT-05 | Phase 5 | Pending |
+| BENCH-09 | Phase 5 | Complete |
+| RESUME-01 | Phase 5 | Complete |
+| RESUME-02 | Phase 5 | Complete |
+| RPT-01 | Phase 5 | Complete |
+| RPT-02 | Phase 5 | Complete |
+| RPT-03 | Phase 5 | Complete |
+| RPT-04 | Phase 5 | Complete |
+| RPT-05 | Phase 5 | Complete |
 | CFG-01 | Phase 3 | Complete |
 | CFG-02 | Phase 3 | Complete |
 | CFG-03 | Phase 3 | Complete |
