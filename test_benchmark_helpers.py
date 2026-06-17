@@ -207,7 +207,10 @@ def test_report_3whisper_jsons():
                     "candidate_id": label,
                     "fit_status": "fit",
                     "error": None,
-                    "rtf": 0.02,
+                    # Real on-disk contract emitted by write_success_json in
+                    # benchmark.sh: speed_metric + numeric speed_value (NOT `rtf`).
+                    "speed_metric": "rtf",
+                    "speed_value": 0.02,
                     "peak_mem_gb": 2.0,
                     "output_file": out_file
                 }
@@ -224,6 +227,12 @@ def test_report_3whisper_jsons():
             assert "turbo" in md_content, f"Expected 'turbo' in report.md"
             # Terminal table to stderr
             assert "turbo" in stderr, f"Expected 'turbo' in terminal table stderr"
+            # The speed must render from speed_metric/speed_value, NOT show n/a
+            # (regression guard for CR-01 — fixture now matches the real writer).
+            assert "RTF=0.020" in stderr, \
+                f"Expected formatted RTF speed in terminal table, got: {stderr}"
+            assert "RTF=0.020" in md_content, \
+                f"Expected formatted RTF speed in report.md, got: {md_content}"
         finally:
             os.unlink(out_file)
 
@@ -248,7 +257,9 @@ def test_report_missing_output_file():
             "candidate_id": "turbo",
             "fit_status": "fit",
             "error": None,
-            "rtf": 0.02,
+            # Real on-disk contract (CR-01): speed_metric + speed_value.
+            "speed_metric": "rtf",
+            "speed_value": 0.02,
             "peak_mem_gb": 2.0,
             "output_file": "/nonexistent/path/transcript.txt"
         }

@@ -371,25 +371,25 @@ def _load_picks(run_dir):
 
 
 def _format_speed(candidate, stage):
-    """Format speed metric for display."""
-    # RTF for whisper, tok/s for others
-    if stage == 'whisper':
-        val = candidate.get('rtf')
-        if val is not None:
-            try:
-                return f"RTF={float(val):.3f}"
-            except (ValueError, TypeError):
-                return str(val)
-    else:
-        # Try various field names
-        for field in ('tok_per_s', 'toks_per_s', 'tokens_per_s', 'speed'):
-            val = candidate.get(field)
-            if val is not None:
-                try:
-                    return f"{float(val):.1f} tok/s"
-                except (ValueError, TypeError):
-                    return str(val)
-    return 'n/a'
+    """
+    Format speed metric for display.
+
+    Reads the canonical on-disk contract written by write_success_json in
+    benchmark.sh: `speed_metric` ("rtf" or "tok_per_s") + numeric `speed_value`.
+    The `stage` argument is retained for signature compatibility but the metric
+    type is taken from the result JSON itself, not inferred from the stage.
+    """
+    metric = candidate.get('speed_metric')
+    val = candidate.get('speed_value')
+    if val is None:
+        return 'n/a'
+    try:
+        fval = float(val)
+    except (ValueError, TypeError):
+        return str(val)
+    if metric == 'rtf':
+        return f"RTF={fval:.3f}"
+    return f"{fval:.1f} tok/s"
 
 
 def _format_mem(candidate):
