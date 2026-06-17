@@ -403,15 +403,50 @@ preflight_check() {
     fi
 }
 
+# ── Stream convention ────────────────────────────────────────────────────────
+# stdout: machine-readable only — the ^OUTPUT_FILE= lines that _run_* helpers
+#         emit and the outer pipeline captures via command substitution.
+# stderr: all human-facing narration (banners, sub-step messages, completion).
+# Never write bare echo to stdout inside or around _run_* substitutions.
+
+# ── Color support detection (CLI-03) ─────────────────────────────────────────
+# Emit ANSI codes only when stderr is a TTY AND NO_COLOR is unset.
+# Uses plain scalar vars — no associative arrays, no bash 4+ features.
+# $'\033' is valid bash 3.2 ANSI escape syntax.
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then
+    C_BOLD=$(printf '\033[1m')
+    C_DIM=$(printf '\033[2m')
+    C_RESET=$(printf '\033[0m')
+else
+    C_BOLD=""
+    C_DIM=""
+    C_RESET=""
+fi
+
 # ── Stage progress banner (CLI-03) ───────────────────────────────────────────
+# Usage: stage_banner "Title" ["Why this stage runs"]
+# ALL output goes to stderr — safe inside and outside _run_* substitutions.
 
 stage_banner() {
-    local msg="$1"
-    echo ""
-    echo "=========================================="
-    echo "  $msg"
-    echo "=========================================="
-    echo ""
+    local title="$1"
+    local why="${2:-}"
+    {
+        echo ""
+        echo "=========================================="
+        echo "  ${C_BOLD}${title}${C_RESET}"
+        if [ -n "$why" ]; then
+            echo "  ${C_DIM}${why}${C_RESET}"
+        fi
+        echo "=========================================="
+        echo ""
+    } >&2
+}
+
+# ── Sub-step narration helper ─────────────────────────────────────────────────
+# narrate "message" — prints a dim one-liner to stderr for sub-step progress.
+
+narrate() {
+    echo "  ${C_DIM}${1}${C_RESET}" >&2
 }
 
 preflight_check
