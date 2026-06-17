@@ -199,16 +199,24 @@ fi
 
 SETTINGS_FILE="$SCRIPT_DIR/config/settings.conf"
 
-# ── First-run: auto-populate settings.conf if missing ────────────────────────
-# On the very first invocation (no settings.conf yet) check whether the
-# recommended defaults fit in this machine's RAM and write settings.conf once.
+# ── First-run: auto-copy settings.conf.example → settings.conf if missing ────
+# On the very first invocation (no settings.conf yet) copy the example config
+# automatically — no manual step required. Before copying, check that the
+# example's models fit in this machine's RAM; if not, prompt --benchmark.
 # Skipped in benchmark mode — benchmark.sh writes settings.conf itself.
 
-if [ ! -f "$SETTINGS_FILE" ] && [ "$BENCHMARK_MODE" != true ]; then
-    _FR_WHISPER="turbo-4bit"
-    _FR_CLEANUP="llama3.1-8b-4bit"
-    _FR_SUMMARY="Qwen2.5-32B-4bit"
-    _FR_CONF="$SCRIPT_DIR/config/candidates.conf"
+_FR_EXAMPLE="$SCRIPT_DIR/config/settings.conf.example"
+_FR_CONF="$SCRIPT_DIR/config/candidates.conf"
+
+if [ ! -f "$SETTINGS_FILE" ] && [ "$BENCHMARK_MODE" != true ] && [ -f "$_FR_EXAMPLE" ]; then
+
+    # Read model labels from the example file (parse-not-source, same as settings.conf reader).
+    _fr_read_example() {
+        grep "^${1}=" "$_FR_EXAMPLE" 2>/dev/null | tail -1 | cut -d= -f2- || true
+    }
+    _FR_WHISPER=$(_fr_read_example WHISPER_MODEL_DEFAULT)
+    _FR_CLEANUP=$(_fr_read_example CLEANUP_MODEL_DEFAULT)
+    _FR_SUMMARY=$(_fr_read_example SUMMARY_MODEL_DEFAULT)
 
     # Look up a model's size_gb from candidates.conf by label; empty on miss.
     _fr_model_size() {
@@ -245,21 +253,18 @@ if [ ! -f "$SETTINGS_FILE" ] && [ "$BENCHMARK_MODE" != true ]; then
         _fr_fits=$(echo "$_fr_needed $_fr_usable_gb" | awk '{print ($1 <= $2) ? "yes" : "no"}')
 
         if [ "$_fr_fits" = "yes" ]; then
-            {
-                printf '# config/settings.conf — auto-generated on first run\n'
-                printf '# Edit to override. Run --benchmark to tune to your hardware.\n'
-                printf '# Precedence: CLI flag > this file > built-in default\n'
-                printf 'WHISPER_MODEL_DEFAULT=%s\n' "$_FR_WHISPER"
-                printf 'CLEANUP_MODEL_DEFAULT=%s\n' "$_FR_CLEANUP"
-                printf 'SUMMARY_MODEL_DEFAULT=%s\n' "$_FR_SUMMARY"
-            } > "$SETTINGS_FILE"
-            echo "First run: wrote config/settings.conf with recommended defaults (${_fr_total_gb} GB RAM, largest model needs ~${_fr_needed} GB)." >&2
+            cp "$_FR_EXAMPLE" "$SETTINGS_FILE"
+            echo "First run: copied config/settings.conf.example → config/settings.conf (${_fr_total_gb} GB RAM, largest model needs ~${_fr_needed} GB)." >&2
         else
             echo "First run: ${_fr_total_gb} GB RAM detected; recommended defaults need ~${_fr_needed} GB (usable: ${_fr_usable_gb} GB)." >&2
             echo "  Run --benchmark to pick models that fit your machine:" >&2
             echo "    ./transcribrr.sh --benchmark" >&2
             echo "" >&2
         fi
+    else
+        # candidates.conf missing or labels not found — copy the example unconditionally.
+        cp "$_FR_EXAMPLE" "$SETTINGS_FILE"
+        echo "First run: copied config/settings.conf.example → config/settings.conf." >&2
     fi
 fi
 

@@ -1,4 +1,4 @@
-# config/settings.conf.example — copy to config/settings.conf and edit
+# config/settings.conf.example — auto-copied to config/settings.conf on first run
 # This file is committed. config/settings.conf is gitignored (per-user).
 #
 # Model selection precedence: CLI flag > this file > built-in default
