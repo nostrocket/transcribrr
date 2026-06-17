@@ -246,11 +246,14 @@ if [ "$BENCHMARK_MODE" = true ]; then
 fi
 
 # ── Provenance summary — print model + source before pipeline starts (D-09) ──
+# Routes to stderr for consistency with all other human narration.
 
-echo "Models:"
-printf "  whisper  = %-24s (%s)\n" "$WHISPER_MODEL" "$WHISPER_MODEL_SOURCE"
-printf "  cleanup  = %-24s (%s)\n" "$CLEANUP_MODEL" "$CLEANUP_MODEL_SOURCE"
-printf "  summary  = %-24s (%s)\n" "$SUMMARY_MODEL" "$SUMMARY_MODEL_SOURCE"
+{
+    echo "Models:"
+    printf "  whisper  = %-24s (%s)\n" "$WHISPER_MODEL" "$WHISPER_MODEL_SOURCE"
+    printf "  cleanup  = %-24s (%s)\n" "$CLEANUP_MODEL" "$CLEANUP_MODEL_SOURCE"
+    printf "  summary  = %-24s (%s)\n" "$SUMMARY_MODEL" "$SUMMARY_MODEL_SOURCE"
+} >&2
 
 # ── URL vs local input detection (D-01) ──────────────────────────────────────
 # Must run before preflight_check so yt-dlp check is URL-conditional.
@@ -763,8 +766,20 @@ fi
 mv "$TEMP_MD" "$FINAL_MD_PATH"
 trap - EXIT  # temp file safely moved; remove cleanup trap
 
-echo ""
-echo "=========================================="
-echo "  Pipeline complete!"
-echo "=========================================="
-echo "Markdown: $FINAL_MD_PATH"
+{
+    echo ""
+    echo "=========================================="
+    echo "  ${C_BOLD}Pipeline complete!${C_RESET}"
+    echo "=========================================="
+    echo "  Markdown: $FINAL_MD_PATH"
+    echo "  Source:   $_VID_URL"
+    echo "  Title:    $_VID_TITLE"
+    echo "  Duration: $_VID_DURATION"
+    if [ "$NO_CLEANUP" = false ]; then
+        echo "  Models:   whisper=$WHISPER_MODEL cleanup=$CLEANUP_MODEL summary=$SUMMARY_MODEL ($SUMMARY_STYLE)"
+    else
+        echo "  Models:   whisper=$WHISPER_MODEL cleanup=skipped summary=$SUMMARY_MODEL ($SUMMARY_STYLE)"
+    fi
+    echo "=========================================="
+    echo ""
+} >&2
