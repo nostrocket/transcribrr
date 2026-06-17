@@ -97,8 +97,8 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 **Plans**: 3 plans
 **Wave 1** *(parallel — disjoint files)*
 
-- [ ] 05-01-PLAN.md — benchmark_helpers.py: divergence view (difflib alignment + majority-consensus outliers + textwrap columns) and report (terminal table + report.md) (RPT-01, RPT-04, RPT-05)
-- [ ] 05-02-PLAN.md — benchmark.sh building blocks: BENCH-09 disk-gate fix, resume primitives (detect_incomplete_run/should_skip_pair/persist_pick/load_picks), atomic write_settings_key, select_best keep-current (BENCH-09, RESUME-01/02, RPT-02/03)
+- [x] 05-01-PLAN.md — benchmark_helpers.py: divergence view (difflib alignment + majority-consensus outliers + textwrap columns) and report (terminal table + report.md) (RPT-01, RPT-04, RPT-05)
+- [x] 05-02-PLAN.md — benchmark.sh building blocks: BENCH-09 disk-gate fix, resume primitives (detect_incomplete_run/should_skip_pair/persist_pick/load_picks), atomic write_settings_key, select_best keep-current (BENCH-09, RESUME-01/02, RPT-02/03)
 
 **Wave 2** *(blocked on 05-01 + 05-02)*
 
@@ -128,5 +128,5 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 2. End-to-End YouTube-to-Markdown Delivery | v1.0 | 2/2 | Complete | 2026-06-14 |
 | 3. Candidate Config & Pipeline Settings Integration | v2.0 | 2/2 | Complete    | 2026-06-15 |
 | 4. Benchmark Engine Core | v2.0 | 4/4 | Complete   | 2026-06-15 |
-| 5. Resumable Sweep, Report & Winner Selection | v2.0 | 0/3 | Not started | - |
+| 5. Resumable Sweep, Report & Winner Selection | v2.0 | 2/3 | In Progress|  |
 | 6. Claude Skill — Candidate Refresh | v2.0 | 0/TBD | Not started | - |

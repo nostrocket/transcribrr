@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Model Benchmarking & Auto-Selection
 status: executing
 stopped_at: Phase 5 context gathered
-last_updated: "2026-06-16T10:01:14.751Z"
-last_activity: 2026-06-16 -- Phase 05 planning complete
+last_updated: "2026-06-17T02:53:53.517Z"
+last_activity: 2026-06-17 -- Phase 05 execution started
 progress:
   total_phases: 4
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** One command takes a YouTube URL to a finished markdown file (summary + full transcript) reliably and unattended — reusing the existing MLX scripts.
-**Current focus:** Phase 04 — benchmark-engine-core
+**Current focus:** Phase 05 — resumable-sweep-report-winner-selection
 
 ## Current Position
 
-Phase: 04 (benchmark-engine-core) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-06-16 -- Phase 05 planning complete
+Phase: 05 (resumable-sweep-report-winner-selection) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 05
+Last activity: 2026-06-17 -- Phase 05 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
