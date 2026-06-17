@@ -743,26 +743,34 @@ write_success_json() {
     local result_json_path="${11}"
     local warmup_wall="${12}"     # integer seconds
 
-    "$PYTHON" - << PYEOF
-import json, datetime
+    # A1 pattern (CR-02): quoted heredoc + every value via sys.argv. The values
+    # (model_id/label/output_file/...) may contain quotes/newlines/backslashes;
+    # interpolating them into Python source would crash the writer or inject code.
+    "$PYTHON" - "$model_id" "$label" "$stage" "$speed_metric" "$speed_value" \
+                "$peak_bytes" "$peak_gb" "$wall_time" "$audio_duration_sec" \
+                "$output_file" "$result_json_path" "$warmup_wall" << 'PYEOF'
+import json, datetime, sys
+(model_id, label, stage, speed_metric, speed_value, peak_bytes, peak_gb,
+ wall_time, audio_duration_sec, output_file, result_json_path,
+ warmup_wall) = sys.argv[1:13]
 data = {
     "format_version":      1,
-    "candidate_id":        "$model_id",
-    "label":               "$label",
-    "stage":               "$stage",
+    "candidate_id":        model_id,
+    "label":               label,
+    "stage":               stage,
     "run_ts":              datetime.datetime.now().isoformat(timespec='seconds'),
     "fit_status":          "fit",
     "error":               None,
-    "speed_metric":        "$speed_metric",
-    "speed_value":         $speed_value,
-    "peak_mem_bytes":      $peak_bytes,
-    "peak_mem_gb":         $peak_gb,
-    "wall_time_sec":       $wall_time,
-    "audio_duration_sec":  $audio_duration_sec,
-    "output_file":         "$output_file",
-    "warmup_wall_sec":     $warmup_wall,
+    "speed_metric":        speed_metric,
+    "speed_value":         float(speed_value),
+    "peak_mem_bytes":      int(peak_bytes),
+    "peak_mem_gb":         float(peak_gb),
+    "wall_time_sec":       int(wall_time),
+    "audio_duration_sec":  (None if audio_duration_sec == "None" else float(audio_duration_sec)),
+    "output_file":         output_file,
+    "warmup_wall_sec":     int(warmup_wall),
 }
-with open("$result_json_path", "w") as f:
+with open(result_json_path, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
 }
@@ -774,17 +782,20 @@ write_error_json() {
     local candidate_exit="$4"
     local result_json_path="$5"
 
-    "$PYTHON" - << PYEOF
-import json, datetime
+    # A1 pattern (CR-02): quoted heredoc + sys.argv (see write_success_json).
+    "$PYTHON" - "$model_id" "$label" "$stage" "$candidate_exit" \
+                "$result_json_path" << 'PYEOF'
+import json, datetime, sys
+(model_id, label, stage, candidate_exit, result_json_path) = sys.argv[1:6]
 data = {
     "format_version":      1,
-    "candidate_id":        "$model_id",
-    "label":               "$label",
-    "stage":               "$stage",
+    "candidate_id":        model_id,
+    "label":               label,
+    "stage":               stage,
     "run_ts":              datetime.datetime.now().isoformat(timespec='seconds'),
     "fit_status":          "fit",
     "error":               "subprocess_nonzero",
-    "exit_code":           $candidate_exit,
+    "exit_code":           int(candidate_exit),
     "speed_metric":        None,
     "speed_value":         None,
     "peak_mem_bytes":      None,
@@ -794,7 +805,7 @@ data = {
     "output_file":         None,
     "warmup_wall_sec":     None,
 }
-with open("$result_json_path", "w") as f:
+with open(result_json_path, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
 }
@@ -806,17 +817,20 @@ write_skip_json() {
     local skip_reason="$4"
     local result_json_path="$5"
 
-    "$PYTHON" - << PYEOF
-import json
+    # A1 pattern (CR-02): quoted heredoc + sys.argv (see write_success_json).
+    "$PYTHON" - "$model_id" "$label" "$stage" "$skip_reason" \
+                "$result_json_path" << 'PYEOF'
+import json, sys
+(model_id, label, stage, skip_reason, result_json_path) = sys.argv[1:6]
 data = {
     "format_version":  1,
-    "candidate_id":    "$model_id",
-    "label":           "$label",
-    "stage":           "$stage",
+    "candidate_id":    model_id,
+    "label":           label,
+    "stage":           stage,
     "fit_status":      "skip",
-    "skip_reason":     "$skip_reason",
+    "skip_reason":     skip_reason,
 }
-with open("$result_json_path", "w") as f:
+with open(result_json_path, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
 }
@@ -1595,21 +1609,29 @@ echo "  Selected summary: $SELECTED_SUMMARY"
 
 CURRENT_STAGE="sweep-meta"
 
-"$PYTHON" - << PYEOF
-import json
+# A1 pattern (CR-02): quoted heredoc + sys.argv. sample_url comes from --sample
+# and the selected_* paths from stage scripts — all may contain quotes/newlines.
+"$PYTHON" - "$RUN_TS" "$TOTAL_GB" "$USABLE_GB" "$AUDIO_DURATION_S" \
+            "$BENCH_SAMPLE_URL" "$BENCH_OVERHEAD_BUFFER_GB" "$BENCH_COOLDOWN_SECS" \
+            "$SELECTED_TRANSCRIPT" "$SELECTED_CLEANED" "$SELECTED_SUMMARY" \
+            "$RUN_DIR/sweep_meta.json" << 'PYEOF'
+import json, sys
+(run_ts, total_ram_gb, usable_gb, audio_duration_s, sample_url,
+ overhead_buffer_gb, cooldown_secs, selected_transcript, selected_cleaned,
+ selected_summary, meta_path) = sys.argv[1:12]
 data = {
-    "run_ts":              "$RUN_TS",
-    "total_ram_gb":        $TOTAL_GB,
-    "usable_gb":           $USABLE_GB,
-    "audio_duration_s":    $AUDIO_DURATION_S,
-    "sample_url":          "$BENCH_SAMPLE_URL",
-    "overhead_buffer_gb":  $BENCH_OVERHEAD_BUFFER_GB,
-    "cooldown_secs":       $BENCH_COOLDOWN_SECS,
-    "selected_transcript": "$SELECTED_TRANSCRIPT",
-    "selected_cleaned":    "$SELECTED_CLEANED",
-    "selected_summary":    "$SELECTED_SUMMARY",
+    "run_ts":              run_ts,
+    "total_ram_gb":        int(total_ram_gb),
+    "usable_gb":           int(usable_gb),
+    "audio_duration_s":    float(audio_duration_s),
+    "sample_url":          sample_url,
+    "overhead_buffer_gb":  int(overhead_buffer_gb),
+    "cooldown_secs":       int(cooldown_secs),
+    "selected_transcript": selected_transcript,
+    "selected_cleaned":    selected_cleaned,
+    "selected_summary":    selected_summary,
 }
-with open("$RUN_DIR/sweep_meta.json", "w") as f:
+with open(meta_path, "w") as f:
     json.dump(data, f, indent=2)
 print("sweep_meta.json written.")
 PYEOF
