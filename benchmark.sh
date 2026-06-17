@@ -1035,9 +1035,46 @@ run_candidate() {
 
 CURRENT_STAGE="run-dir-setup"
 
-RUN_TS=$(date '+%Y%m%dT%H%M%S')
-RUN_DIR="$RESULTS_DIR/benchmark_${RUN_TS}"
-mkdir -p "$RUN_DIR/whisper" "$RUN_DIR/cleanup" "$RUN_DIR/summarize"
+# ── Read current defaults from settings.conf via parse-not-source (Open Q2) ──
+# NEVER source settings.conf — grep+cut only (prevents any injection from the file).
+# These are passed as 3rd arg to select_best to enable the [k] Keep current entry.
+_bench_read_setting() {
+    grep "^${1}=" "$SCRIPT_DIR/config/settings.conf" 2>/dev/null | tail -1 | cut -d= -f2- || true
+}
+CURRENT_WHISPER_DEFAULT=$(_bench_read_setting WHISPER_MODEL_DEFAULT)
+CURRENT_CLEANUP_DEFAULT=$(_bench_read_setting CLEANUP_MODEL_DEFAULT)
+CURRENT_SUMMARY_DEFAULT=$(_bench_read_setting SUMMARY_MODEL_DEFAULT)
+
+# ── Resume detection: prompt before minting a fresh RUN_DIR (RESUME-01/02) ────
+# detect_incomplete_run() returns the path to the most-recent incomplete run dir,
+# or "" if none. On Y/y/<Enter> we reuse it (dirs already exist — no mkdir needed).
+# On N we fall through to the fresh-run path below.
+# Guard: resume uses only the existing run dir's own result set (deferred changed-
+# candidates.conf reconciliation — see CONTEXT.md §Deferred).
+_RESUME_DIR=$(detect_incomplete_run)
+if [ -n "$_RESUME_DIR" ]; then
+    _RESUME_TS=$(basename "$_RESUME_DIR" | sed 's/^benchmark_//')
+    printf "\nResume interrupted run from %s? [Y/n] " "$_RESUME_TS" >&2
+    read -r _RESUME_ANSWER
+    case "${_RESUME_ANSWER:-Y}" in
+        [Yy]|"")
+            RESUMING=true
+            RUN_TS="$_RESUME_TS"
+            RUN_DIR="$_RESUME_DIR"
+            load_picks   # populates SELECTED_TRANSCRIPT/CLEANED/SUMMARY from picks.json
+            echo "Resuming: $RUN_DIR" >&2
+            ;;
+        *)
+            RESUMING=false
+            ;;
+    esac
+fi
+
+if [ "$RESUMING" = false ]; then
+    RUN_TS=$(date '+%Y%m%dT%H%M%S')
+    RUN_DIR="$RESULTS_DIR/benchmark_${RUN_TS}"
+    mkdir -p "$RUN_DIR/whisper" "$RUN_DIR/cleanup" "$RUN_DIR/summarize"
+fi
 echo "Results directory: $RUN_DIR"
 
 # ── select_best: interactive per-stage candidate selection (D-01, T-04-13) ────
@@ -1246,11 +1283,17 @@ while IFS='|' read -r model_id label size_gb; do
         write_skip_json "$model_id" "$label" "whisper" "$SKIP_REASON" \
             "$RUN_DIR/whisper/${label}_result.json"
     else
-        run_candidate "whisper" "$model_id" "$label" \
-            "$SAMPLE_MP3" \
-            "$RUN_DIR/whisper/${label}_result.json" \
-            "$RUN_DIR/whisper" \
-            "" </dev/null   # sever subprocess stdin from the candidate pipe (ffmpeg/MLX must not eat the next line)
+        # Resume: if this candidate already has a complete result JSON, skip re-running.
+        # should_skip_pair returns 0 (skip) for success/fit-gate, 1 (run) for error/absent.
+        if should_skip_pair "$RUN_DIR/whisper/${label}_result.json"; then
+            echo "  SKIP (resume) $label: already completed" >&2
+        else
+            run_candidate "whisper" "$model_id" "$label" \
+                "$SAMPLE_MP3" \
+                "$RUN_DIR/whisper/${label}_result.json" \
+                "$RUN_DIR/whisper" \
+                "" </dev/null   # sever subprocess stdin from the candidate pipe (ffmpeg/MLX must not eat the next line)
+        fi
 
         # Record successful candidate in list file for select_best
         # Extract output_file and metrics from the written JSON via Python
@@ -1332,11 +1375,16 @@ while IFS='|' read -r model_id label size_gb; do
         write_skip_json "$model_id" "$label" "cleanup" "$SKIP_REASON" \
             "$RUN_DIR/cleanup/${label}_result.json"
     else
-        run_candidate "cleanup" "$model_id" "$label" \
-            "$SELECTED_TRANSCRIPT" \
-            "$RUN_DIR/cleanup/${label}_result.json" \
-            "$RUN_DIR/cleanup" \
-            "" </dev/null   # sever subprocess stdin from the candidate pipe
+        # Resume: if this candidate already has a complete result JSON, skip re-running.
+        if should_skip_pair "$RUN_DIR/cleanup/${label}_result.json"; then
+            echo "  SKIP (resume) $label: already completed" >&2
+        else
+            run_candidate "cleanup" "$model_id" "$label" \
+                "$SELECTED_TRANSCRIPT" \
+                "$RUN_DIR/cleanup/${label}_result.json" \
+                "$RUN_DIR/cleanup" \
+                "" </dev/null   # sever subprocess stdin from the candidate pipe
+        fi
 
         if [ -f "$RUN_DIR/cleanup/${label}_result.json" ]; then
             CAND_ERROR=$("$PYTHON" -c "
@@ -1416,12 +1464,17 @@ while IFS='|' read -r model_id label size_gb; do
         write_skip_json "$model_id" "$label" "summarize" "$SKIP_REASON" \
             "$RUN_DIR/summarize/${label}_result.json"
     else
-        # Pass --style blog via extra_args (D-01, plan 04-04 requirement)
-        run_candidate "summarize" "$model_id" "$label" \
-            "$SELECTED_CLEANED" \
-            "$RUN_DIR/summarize/${label}_result.json" \
-            "$RUN_DIR/summarize" \
-            "--style blog" </dev/null   # sever subprocess stdin from the candidate pipe
+        # Resume: if this candidate already has a complete result JSON, skip re-running.
+        if should_skip_pair "$RUN_DIR/summarize/${label}_result.json"; then
+            echo "  SKIP (resume) $label: already completed" >&2
+        else
+            # Pass --style blog via extra_args (D-01, plan 04-04 requirement)
+            run_candidate "summarize" "$model_id" "$label" \
+                "$SELECTED_CLEANED" \
+                "$RUN_DIR/summarize/${label}_result.json" \
+                "$RUN_DIR/summarize" \
+                "--style blog" </dev/null   # sever subprocess stdin from the candidate pipe
+        fi
 
         if [ -f "$RUN_DIR/summarize/${label}_result.json" ]; then
             CAND_ERROR=$("$PYTHON" -c "
