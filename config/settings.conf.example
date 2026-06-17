@@ -6,6 +6,6 @@
 #
 # Values: friendly labels (e.g. turbo, llama3.1-8b-4bit) or raw HF IDs (containing /)
 # Supported keys for this phase only:
-WHISPER_MODEL_DEFAULT=turbo
+WHISPER_MODEL_DEFAULT=turbo-4bit
 CLEANUP_MODEL_DEFAULT=llama3.1-8b-4bit
 SUMMARY_MODEL_DEFAULT=Qwen2.5-32B-4bit

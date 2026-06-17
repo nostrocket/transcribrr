@@ -198,6 +198,71 @@ fi
 # Parse-not-source: grep extracts the value as a literal string; no eval.
 
 SETTINGS_FILE="$SCRIPT_DIR/config/settings.conf"
+
+# ── First-run: auto-populate settings.conf if missing ────────────────────────
+# On the very first invocation (no settings.conf yet) check whether the
+# recommended defaults fit in this machine's RAM and write settings.conf once.
+# Skipped in benchmark mode — benchmark.sh writes settings.conf itself.
+
+if [ ! -f "$SETTINGS_FILE" ] && [ "$BENCHMARK_MODE" != true ]; then
+    _FR_WHISPER="turbo-4bit"
+    _FR_CLEANUP="llama3.1-8b-4bit"
+    _FR_SUMMARY="Qwen2.5-32B-4bit"
+    _FR_CONF="$SCRIPT_DIR/config/candidates.conf"
+
+    # Look up a model's size_gb from candidates.conf by label; empty on miss.
+    _fr_model_size() {
+        local label="$1"
+        [ -f "$_FR_CONF" ] || return 0
+        local in_block=false cur_label="" cur_size=""
+        while IFS= read -r _fr_line; do
+            case "$_fr_line" in
+                "[candidate]")
+                    [ "$in_block" = true ] && [ "$cur_label" = "$label" ] && { printf '%s' "$cur_size"; return; }
+                    in_block=true; cur_label=""; cur_size=""
+                    ;;
+                label=*)   cur_label="${_fr_line#label=}" ;;
+                size_gb=*) cur_size="${_fr_line#size_gb=}" ;;
+            esac
+        done < "$_FR_CONF"
+        [ "$in_block" = true ] && [ "$cur_label" = "$label" ] && printf '%s' "$cur_size"
+    }
+
+    _fr_w=$(_fr_model_size "$_FR_WHISPER")
+    _fr_c=$(_fr_model_size "$_FR_CLEANUP")
+    _fr_s=$(_fr_model_size "$_FR_SUMMARY")
+
+    if [ -n "$_fr_w" ] && [ -n "$_fr_c" ] && [ -n "$_fr_s" ]; then
+        _fr_mem_bytes=$(sysctl -n hw.memsize 2>/dev/null || echo "0")
+        _fr_total_gb=$(echo "$_fr_mem_bytes" | awk '{printf "%d", $1/1024/1024/1024}')
+        _fr_usable_gb=$(echo "$_fr_total_gb" | awk '{printf "%d", $1 * 0.75}')
+
+        # Pipeline runs one model at a time — check the largest single-stage model.
+        _fr_max=$(printf '%s\n%s\n%s\n' "$_fr_w" "$_fr_c" "$_fr_s" | \
+            awk 'BEGIN{m=0} {if($1+0>m) m=$1+0} END{print m}')
+        # 4 GB overhead matches BENCH_OVERHEAD_BUFFER_GB in benchmark.sh.
+        _fr_needed=$(echo "$_fr_max" | awk '{printf "%.1f", $1 + 4}')
+        _fr_fits=$(echo "$_fr_needed $_fr_usable_gb" | awk '{print ($1 <= $2) ? "yes" : "no"}')
+
+        if [ "$_fr_fits" = "yes" ]; then
+            {
+                printf '# config/settings.conf — auto-generated on first run\n'
+                printf '# Edit to override. Run --benchmark to tune to your hardware.\n'
+                printf '# Precedence: CLI flag > this file > built-in default\n'
+                printf 'WHISPER_MODEL_DEFAULT=%s\n' "$_FR_WHISPER"
+                printf 'CLEANUP_MODEL_DEFAULT=%s\n' "$_FR_CLEANUP"
+                printf 'SUMMARY_MODEL_DEFAULT=%s\n' "$_FR_SUMMARY"
+            } > "$SETTINGS_FILE"
+            echo "First run: wrote config/settings.conf with recommended defaults (${_fr_total_gb} GB RAM, largest model needs ~${_fr_needed} GB)." >&2
+        else
+            echo "First run: ${_fr_total_gb} GB RAM detected; recommended defaults need ~${_fr_needed} GB (usable: ${_fr_usable_gb} GB)." >&2
+            echo "  Run --benchmark to pick models that fit your machine:" >&2
+            echo "    ./transcribrr.sh --benchmark" >&2
+            echo "" >&2
+        fi
+    fi
+fi
+
 if [ -f "$SETTINGS_FILE" ]; then
     _read_setting() {
         # Anchored grep prevents prefix collisions; tail -1 = last-writer-wins;
