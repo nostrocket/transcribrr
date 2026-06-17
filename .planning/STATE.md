@@ -113,3 +113,4 @@ Resume file: None (phase complete)
 
 - Start Phase 3 with `/gsd-plan-phase 3`
 | 12 | Ensure deno JS runtime on PATH for yt-dlp YouTube extraction | 2026-06-17 | 6742705 | — |
+| 13 | Probe yt-dlp for unsupported deno version and hint upgrade | 2026-06-17 | 4103514 | — |
