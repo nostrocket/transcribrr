@@ -356,7 +356,22 @@ preflight_check() {
         if ! command -v deno &>/dev/null && [ -x "$HOME/.deno/bin/deno" ]; then
             PATH="$HOME/.deno/bin:$PATH"
         fi
-        ensure_dep deno deno || errors=$((errors + 1))
+        if ensure_dep deno deno; then
+            # ensure_dep only proves deno *exists* — not that it is a version
+            # yt-dlp still supports. An old deno is reported by yt-dlp as
+            # "deno-X.Y (unsupported)" and silently degrades YouTube extraction
+            # (missing formats) rather than failing. Ask yt-dlp itself (no
+            # network: --simulate with no URL just prints the debug header) and
+            # hint an upgrade instead of guessing a version threshold that rots.
+            js_runtime_line=$(yt-dlp -v --simulate 2>&1 | grep -i "JS runtimes:" | head -1)
+            if echo "$js_runtime_line" | grep -qiE "deno-[^ ]+ \(unsupported\)"; then
+                echo "Warning: yt-dlp considers your deno too old for YouTube extraction; some formats may be missing." >&2
+                echo "    ${js_runtime_line#*\] }" >&2
+                echo "  Fix with: deno upgrade   (or: brew upgrade deno)" >&2
+            fi
+        else
+            errors=$((errors + 1))
+        fi
     fi
 
     if [ "$errors" -gt 0 ]; then
