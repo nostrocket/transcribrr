@@ -1332,8 +1332,42 @@ print(str(d.get('peak_mem_gb','')))
     fi
 done < <(parse_candidates "whisper" "$CANDIDATES_CONF")
 
-SELECTED_TRANSCRIPT=$(select_best "whisper" "$WHISPER_RESULTS_LIST")
-rm -f "$WHISPER_RESULTS_LIST"
+# Resume: if whisper pick was already recorded in picks.json, skip re-prompting.
+# Otherwise show divergence view then call select_best (list file must still exist).
+if [ "$RESUMING" = true ] && [ -n "$SELECTED_TRANSCRIPT" ]; then
+    echo "  (Resume) whisper pick already recorded: $SELECTED_TRANSCRIPT" >&2
+    rm -f "$WHISPER_RESULTS_LIST"
+else
+    # Divergence view (RPT-04/05): BEFORE select_best, reads list BEFORE rm -f.
+    # >&2 mandatory — stdout must stay clean for select_best capture (T-05-08/Pitfall 2).
+    DIVERG_ARGS=()
+    while IFS='|' read -r cand_label cand_output _rest; do
+        [ -f "$cand_output" ] && DIVERG_ARGS+=("${cand_label}:${cand_output}")
+    done < "$WHISPER_RESULTS_LIST"
+    if [ "${#DIVERG_ARGS[@]}" -ge 2 ]; then
+        set +e
+        "$PYTHON" "$SCRIPT_DIR"/benchmark_helpers.py divergence \
+            --transcripts "${DIVERG_ARGS[@]}" \
+            --term-width "$(tput cols 2>/dev/null || echo 80)" >&2 \
+            || echo "  Warning: divergence view failed (non-fatal)" >&2
+        set -e
+    fi
+    SELECTED_TRANSCRIPT=$(select_best "whisper" "$WHISPER_RESULTS_LIST" "$CURRENT_WHISPER_DEFAULT")
+    # Derive friendly label from list file BEFORE rm -f (D-10: write label, not path)
+    _WHISPER_WINNER_LABEL=$(grep -F "|${SELECTED_TRANSCRIPT}|" "$WHISPER_RESULTS_LIST" 2>/dev/null | head -1 | cut -d'|' -f1 || true)
+    rm -f "$WHISPER_RESULTS_LIST"
+    # persist_pick → sentinel check → write_settings_key (Pitfall 6 order)
+    persist_pick "whisper" "$SELECTED_TRANSCRIPT"
+    if [ -f "$RUN_DIR/.keep_current_whisper" ]; then
+        rm -f "$RUN_DIR/.keep_current_whisper"
+        # keep-current: do NOT write settings.conf (D-08)
+    else
+        # New pick: write friendly label atomically to settings.conf (D-10)
+        if [ -n "$_WHISPER_WINNER_LABEL" ]; then
+            write_settings_key WHISPER_MODEL_DEFAULT "$_WHISPER_WINNER_LABEL"
+        fi
+    fi
+fi
 
 echo ""
 echo "  Selected transcript: $SELECTED_TRANSCRIPT"
@@ -1421,8 +1455,27 @@ print(str(d.get('peak_mem_gb','')))
     fi
 done < <(parse_candidates "cleanup" "$CANDIDATES_CONF")
 
-SELECTED_CLEANED=$(select_best "cleanup" "$CLEANUP_RESULTS_LIST")
-rm -f "$CLEANUP_RESULTS_LIST"
+# Resume: if cleanup pick was already recorded in picks.json, skip re-prompting.
+if [ "$RESUMING" = true ] && [ -n "$SELECTED_CLEANED" ]; then
+    echo "  (Resume) cleanup pick already recorded: $SELECTED_CLEANED" >&2
+    rm -f "$CLEANUP_RESULTS_LIST"
+else
+    SELECTED_CLEANED=$(select_best "cleanup" "$CLEANUP_RESULTS_LIST" "$CURRENT_CLEANUP_DEFAULT")
+    # Derive friendly label from list file BEFORE rm -f (D-10)
+    _CLEANUP_WINNER_LABEL=$(grep -F "|${SELECTED_CLEANED}|" "$CLEANUP_RESULTS_LIST" 2>/dev/null | head -1 | cut -d'|' -f1 || true)
+    rm -f "$CLEANUP_RESULTS_LIST"
+    # persist_pick → sentinel check → write_settings_key (Pitfall 6 order)
+    persist_pick "cleanup" "$SELECTED_CLEANED"
+    if [ -f "$RUN_DIR/.keep_current_cleanup" ]; then
+        rm -f "$RUN_DIR/.keep_current_cleanup"
+        # keep-current: do NOT write settings.conf (D-08)
+    else
+        # New pick: write friendly label atomically to settings.conf (D-10)
+        if [ -n "$_CLEANUP_WINNER_LABEL" ]; then
+            write_settings_key CLEANUP_MODEL_DEFAULT "$_CLEANUP_WINNER_LABEL"
+        fi
+    fi
+fi
 
 echo ""
 echo "  Selected cleaned transcript: $SELECTED_CLEANED"
@@ -1511,15 +1564,34 @@ print(str(d.get('peak_mem_gb','')))
     fi
 done < <(parse_candidates "summarize" "$CANDIDATES_CONF")
 
-SELECTED_SUMMARY=$(select_best "summarize" "$SUMMARIZE_RESULTS_LIST")
-rm -f "$SUMMARIZE_RESULTS_LIST"
+# Resume: if summarize pick was already recorded in picks.json, skip re-prompting.
+if [ "$RESUMING" = true ] && [ -n "$SELECTED_SUMMARY" ]; then
+    echo "  (Resume) summarize pick already recorded: $SELECTED_SUMMARY" >&2
+    rm -f "$SUMMARIZE_RESULTS_LIST"
+else
+    SELECTED_SUMMARY=$(select_best "summarize" "$SUMMARIZE_RESULTS_LIST" "$CURRENT_SUMMARY_DEFAULT")
+    # Derive friendly label from list file BEFORE rm -f (D-10)
+    _SUMMARIZE_WINNER_LABEL=$(grep -F "|${SELECTED_SUMMARY}|" "$SUMMARIZE_RESULTS_LIST" 2>/dev/null | head -1 | cut -d'|' -f1 || true)
+    rm -f "$SUMMARIZE_RESULTS_LIST"
+    # persist_pick → sentinel check → write_settings_key (Pitfall 6 order)
+    persist_pick "summarize" "$SELECTED_SUMMARY"
+    if [ -f "$RUN_DIR/.keep_current_summarize" ]; then
+        rm -f "$RUN_DIR/.keep_current_summarize"
+        # keep-current: do NOT write settings.conf (D-08)
+    else
+        # New pick: write friendly label atomically to settings.conf (D-10)
+        if [ -n "$_SUMMARIZE_WINNER_LABEL" ]; then
+            write_settings_key SUMMARY_MODEL_DEFAULT "$_SUMMARIZE_WINNER_LABEL"
+        fi
+    fi
+fi
 
 echo ""
 echo "  Selected summary: $SELECTED_SUMMARY"
 
 # ── sweep_meta.json — run-level metadata (D-15, Phase 5 contract) ─────────────
 # Written via "$PYTHON" json module for safe serialization (T-04-09).
-# Does NOT write config/settings.conf — that is Phase 5's responsibility (D-04).
+# Does NOT write config/settings.conf — Phase 5 responsibilities complete above.
 
 CURRENT_STAGE="sweep-meta"
 
@@ -1542,6 +1614,16 @@ with open("$RUN_DIR/sweep_meta.json", "w") as f:
 print("sweep_meta.json written.")
 PYEOF
 
+# ── Report (RPT-01): terminal table + report.md after sweep_meta.json ─────────
+# Invoked immediately after sweep_meta.json so picks.json and all result JSONs
+# exist. Non-fatal: warn-and-continue on non-zero exit (T-05-09).
+set +e
+"$PYTHON" "$SCRIPT_DIR"/benchmark_helpers.py report \
+    --run-dir "$RUN_DIR" \
+    --term-width "$(tput cols 2>/dev/null || echo 80)" >&2 \
+    || echo "  Warning: report generation failed (non-fatal)" >&2
+set -e
+
 echo ""
 echo "Benchmark sweep complete."
-echo "Phase 5 will read $RUN_DIR to write config/settings.conf"
+echo "Results: $RUN_DIR/report.md"
