@@ -392,6 +392,120 @@ should_skip_pair() {
     return 1
 }
 
+# ── Stage-pick persistence (D-14, RESUME-01) ─────────────────────────────────
+#
+# persist_pick(stage, output_file): write/update picks.json in the run dir.
+#   - Uses A1 pattern: "$PYTHON" - args << 'PYEOF' (verified on bash 3.2.57)
+#     where args are delivered as sys.argv[1:] alongside the heredoc on stdin.
+#   - Reads existing picks.json (if present) and merges the new entry.
+#   - NEVER sources picks.json (parse-not-source; T-05-03).
+#
+# load_picks(): populate SELECTED_TRANSCRIPT/SELECTED_CLEANED/SELECTED_SUMMARY
+#   from $RUN_DIR/picks.json when resuming a partial run (D-14).
+#   - Reads via "$PYTHON" -c json.load (never source).
+#   - Values will be empty strings if the key is absent or the file missing.
+
+persist_pick() {
+    local stage="$1"
+    local output_file="$2"
+    local picks_path="$RUN_DIR/picks.json"
+    "$PYTHON" - "$picks_path" "$stage" "$output_file" << 'PYEOF'
+import json, sys
+picks_path, stage, output_file = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(picks_path) as f:
+        picks = json.load(f)
+except Exception:
+    picks = {}
+picks[stage] = output_file
+with open(picks_path, 'w') as f:
+    json.dump(picks, f, indent=2)
+PYEOF
+}
+
+load_picks() {
+    local picks_path="$RUN_DIR/picks.json"
+    if [ -f "$picks_path" ]; then
+        SELECTED_TRANSCRIPT=$("$PYTHON" -c "import json; d=json.load(open('$picks_path')); print(d.get('whisper',''))" 2>/dev/null || echo "")
+        SELECTED_CLEANED=$("$PYTHON" -c "import json; d=json.load(open('$picks_path')); print(d.get('cleanup',''))" 2>/dev/null || echo "")
+        SELECTED_SUMMARY=$("$PYTHON" -c "import json; d=json.load(open('$picks_path')); print(d.get('summarize',''))" 2>/dev/null || echo "")
+    fi
+}
+
+# ── Atomic settings.conf writer (RPT-03, D-07/D-08/D-10, T-05-01/T-05-02) ────
+#
+# write_settings_key(key, value): atomically update one key in config/settings.conf.
+#
+# Security (T-05-02):
+#   - Validates key against the 3 allowed keys only.
+#   - Validates value against ^[A-Za-z0-9._/-]+$ (no shell metacharacters).
+#   - Passes key+value via sys.argv (A1 pattern; NOT heredoc interpolation) to
+#     prevent shell injection into the Python heredoc body.
+# Atomicity (T-05-01):
+#   - mktemp in config/ dir (SAME filesystem as target → mv is atomic rename).
+#   - Temp file registered in _BENCH_TMPFILES EXIT trap (cleaned on Ctrl-C).
+#   - On successful mv, removed from _BENCH_TMPFILES (no double-remove).
+#   - SIGINT during write leaves settings.conf either fully written or absent
+#     (criterion #6 / RPT-03).
+# Merge: reads all existing lines, replaces matching ^KEY\s*= line or appends.
+
+write_settings_key() {
+    local key="$1"
+    local value="$2"
+
+    # Validate key — only the 3 established settings.conf keys are allowed (T-05-02).
+    case "$key" in
+        WHISPER_MODEL_DEFAULT|CLEANUP_MODEL_DEFAULT|SUMMARY_MODEL_DEFAULT) ;;
+        *)
+            echo "Error: write_settings_key: invalid key '$key' (must be one of WHISPER_MODEL_DEFAULT, CLEANUP_MODEL_DEFAULT, SUMMARY_MODEL_DEFAULT)" >&2
+            return 1
+            ;;
+    esac
+
+    # Validate value — only safe label characters allowed (T-05-02).
+    if ! echo "$value" | grep -qE '^[A-Za-z0-9._/-]+$'; then
+        echo "Error: write_settings_key: invalid value '$value' (must match ^[A-Za-z0-9._/-]+\$)" >&2
+        return 1
+    fi
+
+    local conf_path="$SCRIPT_DIR/config/settings.conf"
+    mkdir -p "$SCRIPT_DIR/config"
+
+    # mktemp in same dir as target (Pitfall 3: macOS /tmp is a separate filesystem;
+    # cross-fs mv is NOT atomic — must use same-dir mktemp for atomic rename).
+    local tmp_conf
+    tmp_conf=$(mktemp "$SCRIPT_DIR/config/.settings_tmp_XXXXXX")
+    _BENCH_TMPFILES+=("$tmp_conf")
+
+    # A1 pattern: pass conf_path, tmp_conf, key, value via sys.argv (not heredoc
+    # interpolation) to prevent any shell-injection of a malicious label into the
+    # Python heredoc body. Verified working on bash 3.2.57 (Open Question A1 resolved).
+    "$PYTHON" - "$conf_path" "$tmp_conf" "$key" "$value" << 'PYEOF'
+import sys, re, os
+conf_path, tmp_path, key, value = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+lines = []
+found = False
+if os.path.isfile(conf_path):
+    with open(conf_path) as f:
+        for line in f:
+            stripped = line.rstrip('\n')
+            if re.match(r'^' + re.escape(key) + r'\s*=', stripped):
+                lines.append(f"{key}={value}")
+                found = True
+            else:
+                lines.append(stripped)
+if not found:
+    lines.append(f"{key}={value}")
+with open(tmp_path, 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+PYEOF
+
+    mv "$tmp_conf" "$conf_path"
+    # Remove from tmpfiles list (mv succeeded; no EXIT-trap cleanup needed for this file).
+    # Bash 3.2 safe: parameter expansion replacement (no associative arrays).
+    _BENCH_TMPFILES=("${_BENCH_TMPFILES[@]/$tmp_conf/}")
+}
+
 # ── Fit gate — classify each candidate as fit/skip (HW-02/03, D-07) ─────────
 # estimate = size_gb + BENCH_OVERHEAD_BUFFER_GB; compare <= USABLE_GB via awk.
 # NEVER use (( )) for float comparison — bash 3.2 integer-only.
@@ -928,16 +1042,40 @@ echo "Results directory: $RUN_DIR"
 
 # ── select_best: interactive per-stage candidate selection (D-01, T-04-13) ────
 #
-# Usage: select_best <stage> <list_file>
-#   stage:     whisper | cleanup | summarize (used for display only)
-#   list_file: flat temp file, one "label|output_file" line per successful candidate
+# Usage: select_best <stage> <list_file> [current_default_label]
+#   stage:                 whisper | cleanup | summarize (used for display)
+#   list_file:             flat temp file, one "label|output_file" line per
+#                          successful candidate
+#   current_default_label: optional. If provided AND the label matches a candidate,
+#                          a "[k] Keep current (<label>)" entry is shown (D-09).
+#                          If not provided or not among candidates, [k] is NOT shown
+#                          (Pitfall 8 — never chain an undefined output file).
 #
-# Prints the selected output_file to stdout.
+# Prints the selected output_file to stdout (ONLY; menu/prompts go to stderr).
 # Exits non-zero if zero successful candidates (chain cannot continue).
+#
+# Keep-current sentinel (D-09, TIME_EXIT_FILE analog — benchmark.sh lines 779-786):
+#   select_best runs inside $(...) command substitution → it executes in a SUBSHELL.
+#   Any variable set inside (e.g. LAST_PICK_WAS_KEEP_CURRENT=true) is LOST when the
+#   subshell exits — the parent never sees it, silently breaking D-08 (keep-current
+#   must write nothing). Instead we use the codebase's existing subshell-to-parent
+#   FILE-SIGNAL pattern: the subshell WRITES a sentinel file; the parent READS it
+#   AFTER the subshell exits, then rm -f's it.
+#
+#   Sentinel contract:
+#     Path:     $RUN_DIR/.keep_current_<stage>   (${RUN_DIR:-/tmp} so robust if unset)
+#     Creator:  select_best (this function), inside the subshell
+#     Reader:   the 05-03 caller, immediately after capturing stdout path, via:
+#                 if [ -f "$RUN_DIR/.keep_current_${stage}" ]; then
+#                   # skip write_settings_key for this stage
+#                 fi
+#                 rm -f "$RUN_DIR/.keep_current_${stage}"
+#     Lifetime: created on keep-current pick; removed by caller immediately after check.
+#               On a numbered (new) pick, rm -f any stale sentinel for this stage first.
 #
 # Selection validation (T-04-13 mitigations):
 #   - Strict integer-format regex: grep -qE '^[0-9]+$' (no minus, no spaces, digits only)
-#   - Bounds check: selection -ge 1 AND selection -le N
+#   - Bounds check: selection -ge 1 AND selection -le N (or 'k'/'K' if offered)
 #   - Invalid input: re-prompt (loop) — never silently pick or crash
 #
 # Bash 3.2 compatible: per-stage mapping uses a flat temp file (no associative arrays).
@@ -945,6 +1083,7 @@ echo "Results directory: $RUN_DIR"
 select_best() {
     local stage="$1"
     local list_file="$2"
+    local current_default_label="${3:-}"   # optional 3rd parameter (D-09)
 
     # Count successful candidates
     local count
@@ -956,6 +1095,16 @@ select_best() {
         echo "  All candidates were either skipped (fit gate) or failed to run." >&2
         exit 1
     fi
+
+    # Check if keep-current is available: current_default_label must be non-empty
+    # AND must match at least one candidate label in the list file (Pitfall 8).
+    local keep_current_line=""
+    if [ -n "$current_default_label" ]; then
+        # grep -m1 for the first matching label|… line
+        keep_current_line=$(grep -m1 "^${current_default_label}|" "$list_file" 2>/dev/null || true)
+    fi
+    local keep_current_offered=false
+    [ -n "$keep_current_line" ] && keep_current_offered=true
 
     # Menu + prompt go to STDERR so they reach the terminal — this function's STDOUT
     # is captured by the caller's $(...) and must contain ONLY the selected file path.
@@ -972,17 +1121,40 @@ select_best() {
         printf "      %s\n" "$cand_output" >&2
     done < "$list_file"
 
+    # Keep-current entry (D-09): only when current default is among candidates.
+    if [ "$keep_current_offered" = true ]; then
+        printf "  [k] Keep current (%s)\n" "$current_default_label" >&2
+    fi
+
     echo "" >&2
+
+    # Sentinel dir for keep-current signal (${RUN_DIR:-/tmp} so robust if RUN_DIR unset)
+    local sentinel_dir="${RUN_DIR:-/tmp}"
+    local sentinel_file="${sentinel_dir}/.keep_current_${stage}"
 
     # Validation loop — re-prompt on invalid input (T-04-13)
     local selection
     while true; do
-        printf "  Select the best [1-%d]: " "$count" >&2
+        if [ "$keep_current_offered" = true ]; then
+            printf "  Select the best [1-%d/k]: " "$count" >&2
+        else
+            printf "  Select the best [1-%d]: " "$count" >&2
+        fi
         read -r selection
+
+        # Keep-current: accept 'k' or 'K' only when the entry was offered.
+        if [ "$keep_current_offered" = true ] && { [ "$selection" = "k" ] || [ "$selection" = "K" ]; }; then
+            # Remove any stale sentinel from a prior keep for this stage, then create fresh.
+            rm -f "$sentinel_file"
+            touch "$sentinel_file"
+            # Return the matched candidate's output_file on stdout so chaining works.
+            echo "$keep_current_line" | cut -d'|' -f2
+            return 0
+        fi
 
         # Format check: must be one or more digits, nothing else
         if ! echo "$selection" | grep -qE '^[0-9]+$'; then
-            echo "  Invalid input: '$selection' is not an integer. Please enter a number between 1 and ${count}." >&2
+            echo "  Invalid input: '$selection' is not an integer. Please enter a number between 1 and ${count}${keep_current_offered:+ (or k to keep current)}." >&2
             continue
         fi
 
@@ -994,6 +1166,9 @@ select_best() {
 
         break
     done
+
+    # Numbered pick: remove any stale keep-current sentinel for this stage.
+    rm -f "$sentinel_file"
 
     # Extract selected output_file (field 2) from the Nth line of the list file
     sed -n "${selection}p" "$list_file" | cut -d'|' -f2
