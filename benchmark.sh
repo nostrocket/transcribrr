@@ -340,6 +340,58 @@ is_incomplete() {
     return 1
 }
 
+# ── Resume detection primitives (RESUME-01/02, D-11/D-12/D-13) ───────────────
+#
+# RESUMING: module-level boolean flipped to true by the 05-03 caller when the
+# user accepts a resume prompt. Defined here for 05-03 to toggle; default false.
+RESUMING=false
+
+# detect_incomplete_run: returns path to most-recent incomplete run dir, or "".
+# A run is "complete" if it has sweep_meta.json (Phase 4 contract); report.md
+# is checked additionally for Phase 5-complete runs. During the Phase 5 transition
+# a run with sweep_meta.json but no report.md is treated as COMPLETE (Phase-4-
+# complete runs are not re-runnable). Gate completeness primarily on sweep_meta.json.
+# Returns "" if: no run dirs exist, the most-recent dir is complete, or the most-
+# recent dir has no result JSONs (empty/aborted before any work was done).
+detect_incomplete_run() {
+    local most_recent
+    most_recent=$(ls -td "$RESULTS_DIR"/benchmark_*/ 2>/dev/null | head -1)
+    most_recent="${most_recent%/}"
+    if [ -z "$most_recent" ] || [ ! -d "$most_recent" ]; then
+        echo ""; return 0
+    fi
+    # Complete = has sweep_meta.json (Phase 4 contract).
+    # Also treat sweep_meta.json + report.md as complete (Phase 5).
+    if [ -f "$most_recent/sweep_meta.json" ]; then
+        echo ""; return 0
+    fi
+    # Incomplete: has at least one result JSON → was started, not just an empty dir.
+    if find "$most_recent" -name '*_result.json' -maxdepth 2 | grep -q .; then
+        echo "$most_recent"; return 0
+    fi
+    echo ""; return 0
+}
+
+# should_skip_pair: given a result-JSON path, returns 0 (skip) or 1 (run/re-run).
+# Skip logic (D-13, Pitfall 4):
+#   - File absent → run (return 1)
+#   - fit_status == "skip" → always skip (deterministic fit-gate exclusion, return 0)
+#   - error is empty/null (success) → skip (return 0)
+#   - error is non-empty → re-run (transient OOM/load failure; return 1)
+should_skip_pair() {
+    local json_path="$1"
+    [ -f "$json_path" ] || return 1  # no JSON → run it
+    local fit_status error_val
+    fit_status=$("$PYTHON" -c "import json; d=json.load(open('$json_path')); print(d.get('fit_status',''))" 2>/dev/null || echo "")
+    error_val=$("$PYTHON" -c "import json; d=json.load(open('$json_path')); print(d.get('error') or '')" 2>/dev/null || echo "")
+    # fit-gate skip → always skip (deterministic)
+    [ "$fit_status" = "skip" ] && return 0
+    # success (error null/empty) → skip
+    [ -z "$error_val" ] && return 0
+    # error non-empty → re-run (transient failure)
+    return 1
+}
+
 # ── Fit gate — classify each candidate as fit/skip (HW-02/03, D-07) ─────────
 # estimate = size_gb + BENCH_OVERHEAD_BUFFER_GB; compare <= USABLE_GB via awk.
 # NEVER use (( )) for float comparison — bash 3.2 integer-only.
@@ -385,7 +437,7 @@ NEEDED_GB_F="0"
 for i in "${!FITTING_IDS[@]}"; do
     model_id="${FITTING_IDS[$i]}"
     size_gb="${FITTING_SIZES[$i]}"
-    if ! is_model_cached "$model_id"; then
+    if ! verify_model_complete "$model_id"; then
         NEEDED_GB_F=$(awk "BEGIN{printf \"%.3f\", $NEEDED_GB_F + $size_gb}")
     fi
 done
