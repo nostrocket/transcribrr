@@ -8,12 +8,21 @@ files_reviewed_list:
   - benchmark_helpers.py
   - test_benchmark_helpers.py
 findings:
-  critical: 3
+  critical: 0
   warning: 7
   info: 4
-  total: 14
+  total: 11
+  resolved:
+    - CR-01 (4b1682c)
+    - CR-02 (20b2773)
+    - CR-03 (095d84e)
 status: issues_found
 ---
+
+> **Update 2026-06-17:** All 3 CRITICAL blockers fixed and committed —
+> CR-01 `4b1682c` (speed field contract), CR-02 `20b2773` (JSON writer injection),
+> CR-03 `095d84e` (resume winner persistence). 7 Warning + 4 Info findings remain
+> open for a later pass. CR-03's resume-path behavior should be re-tested on a real TTY.
 
 # Phase 5: Code Review Report
 
