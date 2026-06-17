@@ -470,7 +470,8 @@ if [ "$IS_URL" = true ]; then
     # -- metadata: capture title, channel, URL, duration, upload date, id -----
 
     CURRENT_STAGE="metadata"
-    stage_banner "Stage 1/5: Fetching metadata and downloading audio (yt-dlp)..."
+    stage_banner "Stage 1/5: Fetch video metadata" \
+        "Asking yt-dlp for the title, channel, duration and ID so the output header and filenames are accurate (no download yet)."
 
     # Expected number of --print fields below. Keep in lockstep with the
     # --print list and the field assignments (IN-03).
@@ -541,10 +542,18 @@ if [ "$IS_URL" = true ]; then
     # Append video ID for collision-free working directory naming (Pitfall 5)
     WORK_DIR="$(pwd)/${SAFE_TITLE}_${VIDEO_ID}"
 
+    # Surface captured metadata for the operator
+    narrate "Title:    $VIDEO_TITLE"
+    narrate "Channel:  $VIDEO_CHANNEL"
+    narrate "Duration: $VIDEO_DURATION"
+    narrate "Work dir: $WORK_DIR"
+
     # -- download: extract MP3 audio into per-video working directory ----------
 
     CURRENT_STAGE="download"
-    stage_banner "Stage 1/5: Downloading audio (yt-dlp)..."
+    stage_banner "Stage 1/5: Download & extract audio" \
+        "Downloading the best audio stream and extracting it to MP3 with ffmpeg via yt-dlp so whisper can transcribe it."
+    narrate "-> yt-dlp is fetching audio and ffmpeg is transcoding it to MP3 (this is the step that was previously silent)..."
 
     mkdir -p "$WORK_DIR"
 
@@ -570,10 +579,13 @@ fi
 
 CURRENT_STAGE="transcribe"
 if [ "$IS_URL" = true ]; then
-    stage_banner "Stage 2/5: Transcribing (whisper model: $WHISPER_MODEL)"
+    stage_banner "Stage 2/5: Transcribe audio" \
+        "Running MLX Whisper ($WHISPER_MODEL) locally on Apple Silicon to turn the audio into a raw text transcript."
 else
-    stage_banner "Stage 1/3: Transcribing (whisper model: $WHISPER_MODEL)"
+    stage_banner "Stage 1/3: Transcribe audio" \
+        "Running MLX Whisper ($WHISPER_MODEL) locally on Apple Silicon to turn the audio into a raw text transcript."
 fi
+narrate "-> Starting whisper transcription; this is the longest step for long audio..."
 
 _run_transcribe() {
     "$SCRIPT_DIR/transcribe.sh" "$MP3_FILE" --model "$WHISPER_MODEL" \
@@ -602,9 +614,11 @@ CLEANED_FILE=""
 if [ "$NO_CLEANUP" = false ]; then
     CURRENT_STAGE="cleanup"
     if [ "$IS_URL" = true ]; then
-        stage_banner "Stage 3/5: Cleaning transcript (model: $CLEANUP_MODEL)"
+        stage_banner "Stage 3/5: Clean transcript" \
+            "Using $CLEANUP_MODEL to fix punctuation, remove filler and repair obvious transcription errors before summarizing."
     else
-        stage_banner "Stage 2/3: Cleaning transcript (model: $CLEANUP_MODEL)"
+        stage_banner "Stage 2/3: Clean transcript" \
+            "Using $CLEANUP_MODEL to fix punctuation, remove filler and repair obvious transcription errors before summarizing."
     fi
 
     _run_cleanup() {
@@ -630,7 +644,7 @@ if [ "$NO_CLEANUP" = false ]; then
 
     SUMMARIZE_INPUT="$CLEANED_FILE"
 else
-    echo "Skipping cleanup stage (--no-cleanup specified)."
+    narrate "Skipping cleanup stage (--no-cleanup specified)."
     SUMMARIZE_INPUT="$TRANSCRIPT_FILE"
 fi
 
@@ -638,9 +652,11 @@ fi
 
 CURRENT_STAGE="summarize"
 if [ "$IS_URL" = true ]; then
-    stage_banner "Stage 4/5: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
+    stage_banner "Stage 4/5: Summarize transcript" \
+        "Using $SUMMARY_MODEL to produce a '$SUMMARY_STYLE' summary of the cleaned transcript."
 else
-    stage_banner "Stage 3/3: Summarizing (model: $SUMMARY_MODEL, style: $SUMMARY_STYLE)"
+    stage_banner "Stage 3/3: Summarize transcript" \
+        "Using $SUMMARY_MODEL to produce a '$SUMMARY_STYLE' summary of the cleaned transcript."
 fi
 
 _run_summarize() {
@@ -670,9 +686,11 @@ fi
 
 CURRENT_STAGE="assemble"
 if [ "$IS_URL" = true ]; then
-    stage_banner "Stage 5/5: Assembling final markdown..."
+    stage_banner "Stage 5/5: Assemble markdown" \
+        "Combining the metadata header, summary and full transcript into a single markdown file."
 else
-    stage_banner "Assembling final markdown..."
+    stage_banner "Assemble markdown" \
+        "Combining the metadata header, summary and full transcript into a single markdown file."
 fi
 
 # For local-MP3 input, VIDEO_* vars are not set — default them safely (set -u).
